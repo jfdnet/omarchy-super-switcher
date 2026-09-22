@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.jfdnet.super-switcher",
+  "name": "Omarchy Super Switcher",
+  "version": "1.0.0",
+  "author": "jfdnet",
+  "license": "MIT",
+  "description": "Visual window and workspace switching for Omarchy (Orbit + Overview Workspaces) tuned for stock Hyprland: fast Alt+Tab activation without stalls, and switch targets land maximized in the Super+Alt+F style. Derived from ManateeLazyCat's omarchy-window-switcher.",
+  "keepLoaded": true,
+  "kinds": ["panel", "bar-widget", "service"],
+  "entryPoints": {
+    "panel": "overview/Overview.qml",
+    "barWidget": "overview/bar/widget.qml",
+    "service": "overview/KeybindingService.qml"
+  },
+  "barWidget": {
+    "displayName": "Workspaces",
+    "description": "Workspace buttons, live overview, and visual window switching.",
+    "category": "Desktop",
+    "allowMultiple": false,
+    "defaultSection": "left"
+  }
+}
