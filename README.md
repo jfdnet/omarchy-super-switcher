@@ -4,7 +4,9 @@ All-in-one switching for [Omarchy](https://omarchy.org/): windows, workspaces, a
 gesture-driven workspace gallery — derived from ManateeLazyCat's
 [omarchy-window-switcher](https://github.com/manateelazycat/omarchy-window-switcher)
 (Orbit + Overview Workspaces) and
-[omarchy-workspace-gallery](https://github.com/manateelazycat/omarchy-workspace-gallery),
+[omarchy-workspace-gallery](https://github.com/manateelazycat/omarchy-workspace-gallery)
+plus smart gaps from
+[omarchy-smart-gaps](https://github.com/manateelazycat/omarchy-smart-gaps),
 tuned for **stock Hyprland**.
 
 ## Features
@@ -22,6 +24,11 @@ tuned for **stock Hyprland**.
 - Shows the numbers of occupied workspaces (focused one highlighted) when two
   or more are in use; hides itself with a single workspace.
 - Click a number to jump; right-click for the overview.
+
+### Smart gaps
+- A workspace with exactly one visible tiled window automatically loses its
+  gaps and border; they come back as soon as a second window appears.
+  Floating helpers (screenshot previews etc.) never count.
 
 ### Workspace overview — Super+Tab
 - Live workspace previews, cycling with Super+Tab / Super+Shift+Tab.
@@ -66,14 +73,17 @@ omarchy-window-switcher 与 omarchy-workspace-gallery，MIT 授权致谢）：
   全屏（已全屏的保持原模式）；光标锁进落点窗口防抢焦
 - **顶栏工作区标号**：≥2 个工作区占用时显示编号（聚焦高亮，点击跳转）
 - **Super+Tab**：工作区实时总览
-- **Super+A 工作区 Gallery**：顶部缩略图切换预览、大预览里点哪个 app 就切到
-  哪个 app、拖拽窗口跨工作区、三指手势开关、捏合压缩工作区编号
+- **Super+A 工作区 Gallery**：顶部缩略图单击预览/双击进入（空白槽位双击新建）、
+  大预览里点哪个 app 就全屏切到哪个 app、拖拽窗口跨工作区、三指手势开关、
+  捏合压缩工作区编号
   （手势需执行一次 `python3 gallery/scripts/gesture_config.py install`）
+- **智能边距**：工作区只有一个平铺窗口时自动去边距去边框，出现第二个窗口即恢复
 
 ## Credits
 
 - [ManateeLazyCat](https://github.com/manateelazycat) — Orbit, Overview
-  Workspaces, and Workspace Gallery, the upstream projects this derives from
+  Workspaces, Workspace Gallery, and Smart Gaps, the upstream projects this
+  derives from
 - [Omarchy](https://omarchy.org/) — the desktop this targets
 
 ## License
