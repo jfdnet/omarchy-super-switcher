@@ -1693,9 +1693,16 @@ Item {
       onStreamFinished: {
         try {
           const w = JSON.parse(text)
-          if (w && w.address === fullscreenApply.targetAddress && !w.fullscreen)
-            Quickshell.execDetached(["hyprctl", "dispatch",
-              'hl.dsp.window.fullscreen({ window = "address:' + w.address + '", mode = "maximized" })'])
+          if (w && w.address === fullscreenApply.targetAddress) {
+            // 光标锁进目标窗口中心（follow_mouse=1 下防抢焦）；
+            // 未全屏的落点再补 Super+Alt+F 式 maximized。
+            const cx = (w.at?.[0] ?? 0) + (w.size?.[0] ?? 0) / 2
+            const cy = (w.at?.[1] ?? 0) + (w.size?.[1] ?? 0) / 2
+            let lua = 'hl.dispatch(hl.dsp.cursor.move({x=' + cx + ', y=' + cy + '})); '
+            if (!w.fullscreen)
+              lua += 'hl.dispatch(hl.dsp.window.fullscreen({ window = "address:' + w.address + '", mode = "maximized" }))'
+            Quickshell.execDetached(["hyprctl", "eval", lua])
+          }
         } catch (error) {}
       }
     }

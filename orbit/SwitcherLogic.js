@@ -490,6 +490,7 @@ function activationScript(sourceValue, targetValue, desiredState, restoreFirst, 
     + 'local function state(w, mode) if w and w.mapped and w.fullscreen ~= mode then '
     + 'local client = w.fullscreen_client; if mode == 1 and client == 0 then client = 1 end; '
     + 'hl.dispatch(hl.dsp.window.fullscreen_state({internal=mode,client=client,action="set",window=w})) end end; '
+  script += 'hl.dispatch(hl.dsp.focus({workspace = t.workspace.id})); '
   if (source && source !== target)
     script += 'local s = hl.get_window("address:' + source + '"); if s and s.workspace and t.workspace and s.workspace.id == t.workspace.id then state(s,0) end; '
   if (desired > 0 && restoreFirst) script += 'state(t,' + desired + '); '

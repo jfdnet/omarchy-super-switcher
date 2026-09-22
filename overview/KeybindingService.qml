@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import "../orbit" as Orbit
+import "../gallery" as GalleryMod
 import "WorkspaceBarConfig.js" as WorkspaceBarConfig
 
 Item {
@@ -227,4 +228,7 @@ Item {
         bindingApplyGuard.stop();
         root.restoreBindings();
     }
+    // Workspace Gallery（Super+A + 三指手势）：常驻加载，随 service 存活
+    GalleryMod.Gallery {}
+
 }

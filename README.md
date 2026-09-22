@@ -1,31 +1,40 @@
 # Omarchy Super Switcher
 
-Visual window and workspace switching for [Omarchy](https://omarchy.org/) —
-a derivative of ManateeLazyCat's
+All-in-one switching for [Omarchy](https://omarchy.org/): windows, workspaces, and a
+gesture-driven workspace gallery — derived from ManateeLazyCat's
 [omarchy-window-switcher](https://github.com/manateelazycat/omarchy-window-switcher)
-(Orbit + Overview Workspaces) tuned for **stock Hyprland** with a
-switch-to-workflow that lands windows the way you actually want them.
+(Orbit + Overview Workspaces) and
+[omarchy-workspace-gallery](https://github.com/manateelazycat/omarchy-workspace-gallery),
+tuned for **stock Hyprland**.
 
-## What's different from upstream
+## Features
 
-1. **Fast Alt+Tab on stock Hyprland.** Upstream queries an
-   `orbit-window-ready` readiness dispatcher during activation; that
-   dispatcher does not exist on stock Hyprland, so every activation ended via
-   a 1600 ms settle timeout (1.6–5 s per switch). Super Switcher treats the
-   missing dispatcher as "unavailable", finishes activation immediately, and
-   never re-issues the doomed query. Switch latency drops to ~100–300 ms.
-2. **Switch targets land maximized (Super+Alt+F style).** Switching to a
-   window you cannot see (other workspaces) lands it fullscreen in the
-   Super+Alt+F style — `mode = "maximized"`, filling the work area while
-   keeping bar/gaps. Already-fullscreen windows are never downgraded, and
-   windows already visible on the current workspace are just focused, leaving
-   the tiled layout intact.
-3. **All-workspace scope by default.** The Alt+Tab cycle covers every normal
-   workspace, so you can actually reach the windows you cannot see.
-   (`scope: "visible"` in the plugin config restores upstream behavior.)
+### Alt+Tab — fast window switching (Orbit)
+- Fast activation on stock Hyprland: upstream waits ~1.6 s per switch on an
+  `orbit-window-ready` dispatcher that does not exist outside the author's
+  environment; we finish activation immediately (~100–300 ms).
+- Switch targets land **maximized in the Super+Alt+F style** when not already
+  visible; already-fullscreen windows keep their mode; the cursor locks into
+  the landed window so `follow_mouse` cannot steal focus.
+- Cycles windows across **all workspaces** (`scope: "all"`).
 
-Everything else — the Orbit picker, live workspace overview, snap layouts,
-settings panel — is upstream's work.
+### Workspace numbers on the bar
+- Shows the numbers of occupied workspaces (focused one highlighted) when two
+  or more are in use; hides itself with a single workspace.
+- Click a number to jump; right-click for the overview.
+
+### Workspace overview — Super+Tab
+- Live workspace previews, cycling with Super+Tab / Super+Shift+Tab.
+
+### Workspace Gallery — Super+A (gesture driven)
+- Top strip: live thumbnails of every workspace — click to switch the preview.
+- Bottom: large preview of the selected workspace — **click any window to
+  switch to exactly that app** (workspace switch + focus + cursor lock).
+- Drag windows between thumbnails to move them across workspaces.
+- Three-finger swipe up/down to open/close, left/right to browse; two-finger
+  pinch (or `Down`) compacts occupied workspaces into consecutive numbers.
+- Gestures need one setup step: `python3 gallery/scripts/gesture_config.py install`
+  (injects a managed block into `~/.config/hypr/input.lua`; `uninstall` removes it).
 
 ## Install
 
@@ -33,12 +42,9 @@ settings panel — is upstream's work.
 omarchy plugin add https://github.com/jfdnet/omarchy-super-switcher.git --enable
 ```
 
-The plugin replaces Omarchy's built-in workspace bar widget and registers its
-shortcuts at runtime (`Alt+Tab` / `Alt+Shift+Tab` windows, `Super+Tab` /
-`Super+Shift+Tab` workspace overview).
-
-If Orbit or Overview Workspaces is installed separately, remove those copies
-first so two plugins do not compete for the same global shortcuts.
+Replaces Omarchy's built-in workspace bar widget. Remove Orbit/Overview
+Workspaces/Workspace Gallery copies first if you have them — this plugin
+bundles all of them.
 
 ## Update / Remove
 
@@ -47,35 +53,29 @@ omarchy plugin update io.github.jfdnet.super-switcher
 omarchy plugin remove io.github.jfdnet.super-switcher
 ```
 
-Removing the plugin restores Omarchy's native `Alt+Tab`.
-
 ## Requirements
 
 - Omarchy with the Quickshell plugin system (Hyprland 0.56+ with Lua config)
 
-## Credits
-
-- [ManateeLazyCat](https://github.com/manateelazycat) — Orbit and Overview
-  Workspaces, the upstream this project derives from
-- [Omarchy](https://omarchy.org/) — the desktop this targets
-
 ## 中文说明
 
-为 [Omarchy](https://omarchy.org/) 打造的可视化窗口/工作区切换插件，基于
-ManateeLazyCat 的 omarchy-window-switcher（Orbit + Overview Workspaces），
-针对**原版 Hyprland** 做了体验调优：
+为 [Omarchy](https://omarchy.org/) 打造的一体化切换插件（基于 ManateeLazyCat 的
+omarchy-window-switcher 与 omarchy-workspace-gallery，MIT 授权致谢）：
 
-- **Alt+Tab 不再卡顿**：上游依赖的 `orbit-window-ready` dispatcher 在原版
-  Hyprland 上不存在，导致每次激活都吃满 1.6 秒兜底超时（实测 1.6–5 秒）。
-  本插件检测到不可用后立即完成激活，切换延迟降至 ~100–300 毫秒。
-- **切换落点默认 Super+Alt+F 式全屏**：切到看不见的窗口（其他工作区）时，
-  自动以 maximized 模式铺满工作区；已全屏的窗口保持原模式不降级；当前
-  工作区平铺窗口只聚焦，不打乱布局。
+- **Alt+Tab**：原版 Hyprland 上不再卡 1.6 秒；跨工作区落点自动 Super+Alt+F 式
+  全屏（已全屏的保持原模式）；光标锁进落点窗口防抢焦
+- **顶栏工作区标号**：≥2 个工作区占用时显示编号（聚焦高亮，点击跳转）
+- **Super+Tab**：工作区实时总览
+- **Super+A 工作区 Gallery**：顶部缩略图切换预览、大预览里点哪个 app 就切到
+  哪个 app、拖拽窗口跨工作区、三指手势开关、捏合压缩工作区编号
+  （手势需执行一次 `python3 gallery/scripts/gesture_config.py install`）
 
-```bash
-omarchy plugin add https://github.com/jfdnet/omarchy-super-switcher.git --enable
-```
+## Credits
+
+- [ManateeLazyCat](https://github.com/manateelazycat) — Orbit, Overview
+  Workspaces, and Workspace Gallery, the upstream projects this derives from
+- [Omarchy](https://omarchy.org/) — the desktop this targets
 
 ## License
 
-[MIT](LICENSE) — 基于 ManateeLazyCat 的 omarchy-window-switcher（MIT）。
+[MIT](LICENSE) — derived from ManateeLazyCat's MIT-licensed plugins.
