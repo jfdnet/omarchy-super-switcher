@@ -515,6 +515,14 @@ Item {
                 acceptedButtons: Qt.LeftButton
                 gesturePolicy: TapHandler.DragThreshold
                 onTapped: root.animateToWorkspace(topCard.modelData.id)
+                // 双击进入该工作区；空白槽位双击 = 新建（聚焦首个空工作区）并进入
+                onDoubleTapped: {
+                    const isTrailing = topCard.modelData.isTrailingEmpty ?? false
+                    root.activationPending(isTrailing
+                        ? { workspace: "empty" }
+                        : { workspace: String(topCard.modelData.id) })
+                    root.closeRequested(false)
+                }
             }
 
             DropArea {

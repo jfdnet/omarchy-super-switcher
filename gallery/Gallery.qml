@@ -167,19 +167,33 @@ Scope {
             galleryScope.pendingActivation = null
             if (!p)
                 return
-            pendingActivateProcess.command = ["hyprctl", "eval",
-                'local t = hl.get_window("address:' + p.addr + '"); '
-                + 'if t then '
-                + 'hl.dispatch(hl.dsp.focus({workspace = t.workspace.id})); '
-                + 'hl.dispatch(hl.dsp.focus({window = t})); '
-                + 'hl.dispatch(hl.dsp.cursor.move({x=' + p.cx + ', y=' + p.cy + '})) '
-                + 'end']
+            if (p.workspace !== undefined) {
+                // 工作区级激活：双击缩略图进入（"empty" = 新建并进入首个空工作区）
+                const wsExpr = p.workspace === "empty" ? '"empty"' : String(Number(p.workspace))
+                pendingActivateProcess.command = ["hyprctl", "eval",
+                    'hl.dispatch(hl.dsp.focus({workspace = ' + wsExpr + '}))']
+            } else {
+                maximizeCheck.targetAddress = p.addr
+                pendingActivateProcess.command = ["hyprctl", "eval",
+                    'local t = hl.get_window("address:' + p.addr + '"); '
+                    + 'if t then '
+                    + 'hl.dispatch(hl.dsp.focus({workspace = t.workspace.id})); '
+                    + 'hl.dispatch(hl.dsp.focus({window = t})); '
+                    + 'hl.dispatch(hl.dsp.cursor.move({x=' + p.cx + ', y=' + p.cy + '})) '
+                    + 'end']
+            }
             pendingActivateProcess.running = true
         }
     }
 
     Process {
         id: pendingActivateProcess
+
+        onExited: {
+            if (maximizeCheck.targetAddress !== "")
+                maximizeCheck.running = true
+        }
+
         stdout: StdioCollector {
             waitForEnd: true
         }
@@ -188,6 +202,29 @@ Scope {
             onStreamFinished: {
                 if (text.trim() !== "")
                     console.warn("[super-switcher] gallery activate error: " + text.trim())
+            }
+        }
+    }
+
+    Process {
+        id: maximizeCheck
+        property string targetAddress: ""
+
+        command: ["hyprctl", "-j", "activewindow"]
+
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                try {
+                    const w = JSON.parse(text)
+                    if (w && w.address === maximizeCheck.targetAddress && !w.fullscreen) {
+                        const cx = (w.at?.[0] ?? 0) + (w.size?.[0] ?? 0) / 2
+                        const cy = (w.at?.[1] ?? 0) + (w.size?.[1] ?? 0) / 2
+                        Quickshell.execDetached(["hyprctl", "eval",
+                            'hl.dispatch(hl.dsp.window.fullscreen({ window = "address:' + w.address + '", mode = "maximized" })); '
+                            + 'hl.dispatch(hl.dsp.cursor.move({x=' + cx + ', y=' + cy + '}))'])
+                    }
+                } catch (error) {}
             }
         }
     }
