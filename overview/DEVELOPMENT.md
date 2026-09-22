@@ -1,4 +1,4 @@
-# Omarchy Window Switcher 的 Overview 维护规则
+# Overview Development Notes (维护说明) Omarchy Window Switcher 的 Overview 维护规则
 
 ## 绝对禁止：插件生命周期中调用 `hyprctl reload`
 
