@@ -1159,9 +1159,15 @@ Item {
     // 且它还不是全屏时，自动 Super+Alt+F 式（maximized）铺满工作区；
     // 已全屏的窗口（无论哪种模式）保持原样不降级。
     if (root.pendingWindow) {
-      fullscreenApply.targetAddress = root.pendingWindow.address
-      fullscreenApply.command = ["hyprctl", "-j", "activewindow"]
-      fullscreenApply.running = true
+      // 关层后的最终激活：先切工作区+聚焦（层焦点已释放，派发才生效），
+      // 完成后再做条件 maximize + 光标锁定。
+      const target = root.pendingWindow
+      const wsId = Number(target.workspace?.id ?? 0)
+      fullscreenApply.targetAddress = target.address
+      wsActivateProcess.command = ["hyprctl", "eval",
+        (wsId > 0 ? 'hl.dispatch(hl.dsp.focus({workspace = ' + wsId + '})); ' : '')
+        + 'hl.dispatch(hl.dsp.focus({window = "address:' + target.address + '"}))']
+      wsActivateProcess.running = true
     }
     root.pendingWindow = null
     root.pendingFullscreenRelease = null
@@ -1681,6 +1687,21 @@ Item {
         return
       Hyprland.dispatch('hl.dsp.focus({ window = "address:' + address + '" })')
       Hyprland.dispatch("hl.dsp.window.bring_to_top()")
+    }
+  }
+
+  Process {
+    id: wsActivateProcess
+
+    onExited: {
+      if (fullscreenApply.targetAddress !== "") {
+        fullscreenApply.command = ["hyprctl", "-j", "activewindow"]
+        fullscreenApply.running = true
+      }
+    }
+
+    stdout: StdioCollector {
+      waitForEnd: true
     }
   }
 
