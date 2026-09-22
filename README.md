@@ -71,7 +71,6 @@ ManateeLazyCat 的 omarchy-window-switcher（Orbit + Overview Workspaces），
 - **切换落点默认 Super+Alt+F 式全屏**：切到看不见的窗口（其他工作区）时，
   自动以 maximized 模式铺满工作区；已全屏的窗口保持原模式不降级；当前
   工作区平铺窗口只聚焦，不打乱布局。
-- **默认轮换所有工作区的窗口**（上游默认仅当前工作区）。
 
 ```bash
 omarchy plugin add https://github.com/jfdnet/omarchy-super-switcher.git --enable
