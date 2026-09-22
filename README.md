@@ -1,9 +1,8 @@
 # Omarchy Super Switcher
 
-All-in-one window management for [Omarchy](https://omarchy.org/): fast app
-switching, workspace numbers on the bar, a live workspace overview, a
-gesture-driven workspace gallery, and smart gaps — in one plugin, tuned for
-**stock Hyprland**.
+Window management for [Omarchy](https://omarchy.org/): fast app switching,
+workspace numbers on the bar, a live workspace overview, and a
+gesture-driven workspace gallery — tuned for **stock Hyprland**.
 
 ## Features
 
@@ -36,11 +35,6 @@ gesture-driven workspace gallery, and smart gaps — in one plugin, tuned for
   (injects a managed block into `~/.config/hypr/input.lua`; `uninstall`
   removes it).
 
-### Smart gaps
-- A workspace with exactly one visible tiled window automatically loses its
-  gaps and border; they come back as soon as a second window appears.
-  Floating helpers (screenshot previews etc.) never count.
-
 ## Install
 
 ```bash
@@ -48,8 +42,8 @@ omarchy plugin add https://github.com/jfdnet/omarchy-super-switcher.git --enable
 ```
 
 Replaces Omarchy's built-in workspace bar widget. Remove any standalone
-window-switcher / workspace-gallery / smart-gaps plugins first — this plugin
-bundles all of that functionality.
+window-switcher / workspace-gallery plugins first to avoid duplicate
+shortcuts.
 
 ## Update / Remove
 
@@ -66,7 +60,7 @@ omarchy plugin remove io.github.jfdnet.super-switcher
 
 ## 中文说明
 
-为 [Omarchy](https://omarchy.org/) 打造的一体化窗口管理插件：
+为 [Omarchy](https://omarchy.org/) 打造的窗口管理插件：
 
 - **Alt+Tab**：秒级切换，跨所有工作区轮换；落点自动 Super+Alt+F 式全屏
   （已全屏的保持原模式）；光标锁进落点窗口防抢焦
@@ -76,8 +70,6 @@ omarchy plugin remove io.github.jfdnet.super-switcher
   新建）、大预览里点哪个 app 就全屏切到哪个 app、拖拽窗口跨工作区、
   三指手势开关、捏合压缩工作区编号
   （手势需执行一次 `python3 gallery/scripts/gesture_config.py install`）
-- **智能边距**：工作区只有一个平铺窗口时自动去边距去边框，出现第二个
-  窗口即恢复
 
 ## License
 
