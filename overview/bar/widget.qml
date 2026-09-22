@@ -66,6 +66,36 @@ BarWidget {
         return ordered;
     }
 
+    // 有窗口的工作区编号（升序，含当前聚焦的空工作区）。只在占用数 ≥2 时
+    // 显示标号：单一工作区一眼就能看全，不需要在 bar 上占位。
+    readonly property var occupiedWorkspaceIds: {
+        const _dataSerial = Local.HyprlandData.dataSerial;
+        void _dataSerial;
+        const ids = [];
+        const added = ({});
+        for (const w of Hyprland.workspaces.values) {
+            const id = Number(w?.id ?? -1);
+            if (id <= 0 || id > 100 || added[id])
+                continue;
+            const workspace = Local.HyprlandData.workspaceById[id];
+            const onTargetMonitor = !root.targetMonitorName
+                || Local.HyprlandData.workspaceMonitorName(workspace) === root.targetMonitorName;
+            if (onTargetMonitor && workspace && Local.HyprlandData.workspaceHasVisibleWindows(id)) {
+                ids.push(id);
+                added[id] = true;
+            }
+        }
+        const focused = Number(root.focusedWorkspaceId);
+        if (focused > 0 && !added[focused]) {
+            ids.push(focused);
+            added[focused] = true;
+        }
+        ids.sort((a, b) => a - b);
+        return ids;
+    }
+    readonly property bool showWorkspaceNumbers: !root.mruEnabled
+        && root.occupiedWorkspaceIds.length > 1
+
     function applySettings() {
         Local.GlobalStates.overviewSortMode = setting("sortMode", "system") === "legacy"
             ? "legacy" : "system";
@@ -96,7 +126,9 @@ BarWidget {
         onTriggered: root.injectPanel()
     }
 
-    implicitWidth: (root.mruEnabled ? mruLabel.implicitWidth : workspaceRow.implicitWidth)
+    implicitWidth: (root.showWorkspaceNumbers
+            ? workspaceRow.implicitWidth
+            : (root.mruEnabled ? mruLabel.implicitWidth : 0))
         + button.implicitWidth
     implicitHeight: button.implicitHeight
     onBarChanged: injectPanel()
@@ -125,7 +157,7 @@ BarWidget {
         id: mruLabel
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
-        visible: root.mruEnabled
+        visible: root.mruEnabled && !root.showWorkspaceNumbers
         z: 1
         bar: root.bar
         text: "Workspaces"
@@ -162,10 +194,10 @@ BarWidget {
         anchors.verticalCenter: parent.verticalCenter
         height: parent.height
         spacing: Style.space(1)
-        visible: !root.mruEnabled
+        visible: root.showWorkspaceNumbers
 
         Repeater {
-            model: root.workspaceIds
+            model: root.showWorkspaceNumbers ? root.occupiedWorkspaceIds : []
 
             WidgetButton {
                 required property int modelData
