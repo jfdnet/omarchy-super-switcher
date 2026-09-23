@@ -389,48 +389,6 @@ Item {
         }
     }
 
-    // ---- Manual workspace reordering (drag a top card onto another) --------
-    property var topCardDrag: null
-
-    function topCardIndexAtX(sceneX) {
-        for (let i = 0; i < root.entries.length; ++i) {
-            const x = root.topCardXForIndex(i);
-            if (sceneX >= x - root.cardGap / 2
-                    && sceneX <= x + root.topCardWidth + root.cardGap / 2)
-                return i;
-        }
-        return -1;
-    }
-
-    function beginTopCardDrag(id, index, sceneX, sceneY) {
-        root.topCardDrag = ({ id: id, index: index, x: sceneX, y: sceneY });
-    }
-
-    function updateTopCardDrag(sceneX, sceneY) {
-        if (!root.topCardDrag)
-            return;
-        root.topCardDrag = ({
-            id: root.topCardDrag.id,
-            index: root.topCardDrag.index,
-            x: sceneX,
-            y: sceneY
-        });
-    }
-
-    function endTopCardDrag() {
-        const drag = root.topCardDrag;
-        root.topCardDrag = null;
-        if (!drag)
-            return;
-        const targetIndex = root.topCardIndexAtX(drag.x);
-        if (targetIndex < 0 || targetIndex === drag.index)
-            return;
-        const target = root.entries[targetIndex];
-        if (!target || target.isTrailingEmpty)
-            return;
-        WorkspaceNavigation.swapWorkspaces(drag.id, target.id);
-    }
-
     // ---- Top-strip transitions ------------------------------------------------
     // The strip model is a plain array, so reassignments rebuild every delegate
     // without ListView transitions. Diff entries on each change and hand each
@@ -799,14 +757,6 @@ Item {
             }
             opacity: topCard.compactionVisual.opacity * topCard.introOpacity
                 * (root.enteringTopCard !== null && topCard.modelData.isTrailingEmpty ? 0 : 1)
-                * (root.topCardDrag !== null && root.topCardDrag.id === topCard.modelData.id ? 0.3 : 1)
-            // Manual reordering: while a card is dragged onto this slot (and
-            // it's not the dragged one), the border lights up as the swap
-            // target.
-            readonly property bool isCardDropTarget: root.topCardDrag !== null
-                && root.topCardDrag.index !== topCard.index
-                && root.topCardIndexAtX(root.topCardDrag.x) === topCard.index
-                && !(root.entries[topCard.index]?.isTrailingEmpty ?? true)
             z: (topCard.compactionVisual.active ? 20 + topCard.index : 0)
                 + (topCard.introOffset > 0.5 ? 40 : 0)
             transform: [
@@ -909,32 +859,6 @@ Item {
                 }
             }
 
-            // Manual reordering: drag the card background (the window
-            // thumbnails keep their own drag). Dropping on another occupied
-            // card swaps the two workspaces' order.
-            DragHandler {
-                id: topCardDragHandler
-                target: null
-                enabled: !topCard.modelData.isTrailingEmpty
-                    && root.workspaceInteractionEnabled
-                margin: 14
-                onActiveChanged: {
-                    if (topCardDragHandler.active) {
-                        const point = topCardDragHandler.centroid.scenePosition;
-                        root.beginTopCardDrag(topCard.modelData.id, topCard.index,
-                            point.x, point.y);
-                    } else {
-                        root.endTopCardDrag();
-                    }
-                }
-                onCentroidChanged: {
-                    if (topCardDragHandler.active) {
-                        const point = topCardDragHandler.centroid.scenePosition;
-                        root.updateTopCardDrag(point.x, point.y);
-                    }
-                }
-            }
-
             TapHandler {
                 acceptedButtons: Qt.LeftButton
                 gesturePolicy: TapHandler.DragThreshold
@@ -965,10 +889,8 @@ Item {
                 anchors.fill: parent
                 radius: 0
                 color: "transparent"
-                border.width: topCard.modelData.id === root.highlightedWorkspaceId
-                        || topCard.isCardDropTarget ? 4 : 1
+                border.width: topCard.modelData.id === root.highlightedWorkspaceId ? 4 : 1
                 border.color: topCard.modelData.id === root.highlightedWorkspaceId
-                        || topCard.isCardDropTarget
                     ? TuiStyle.accent
                     : ColorUtils.transparentize(TuiStyle.fg, 0.55)
                 z: 100
@@ -1139,54 +1061,6 @@ Item {
             to: 1
             duration: 300
             easing.type: Easing.OutCubic
-        }
-    }
-
-    // Floating copy of a workspace card while it is dragged for manual
-    // reordering; dropping it on another occupied card swaps their order.
-    Rectangle {
-        id: topCardDragProxy
-        visible: root.topCardDrag !== null
-        x: (root.topCardDrag?.x ?? 0) - width / 2
-        y: (root.topCardDrag?.y ?? 0) - height / 2
-        width: root.topCardWidth
-        height: root.topCardHeight
-        radius: 10
-        z: 9000
-        opacity: 0.95
-        clip: true
-        color: Appearance.colors.colSurfaceContainerLow
-        border.width: 2
-        border.color: TuiStyle.accent
-
-        Image {
-            anchors.fill: parent
-            source: root.wallpaperUrl
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: false
-            cache: true
-            opacity: 0.82
-        }
-
-        Rectangle {
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: 6
-            width: topCardDragBadgeLabel.implicitWidth + 12
-            height: topCardDragBadgeLabel.implicitHeight + 5
-            radius: height / 2
-            color: ColorUtils.transparentize(TuiStyle.bg, 0.2)
-            border.width: 1
-            border.color: ColorUtils.transparentize(TuiStyle.accent, 0.35)
-
-            Text {
-                id: topCardDragBadgeLabel
-                anchors.centerIn: parent
-                text: root.topCardDrag !== null ? String(root.topCardDrag.id) : ""
-                font.pixelSize: Appearance.font.pixelSize.smaller
-                font.weight: Font.DemiBold
-                color: TuiStyle.accent
-            }
         }
     }
 

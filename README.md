@@ -22,10 +22,11 @@ gesture-driven workspace gallery — tuned for **stock Hyprland**.
 - Live workspace previews, cycling with Super+Tab / Super+Shift+Tab.
 
 ### Workspace Gallery — Super+A (gesture driven)
-- Top strip: occupied workspaces plus **one empty "＋" slot** — single click
-  switches the preview, **double click enters the workspace**; double click
-  (or a window drop) on the empty slot creates and enters a fresh workspace,
-  and the next empty slot appears right away.
+- Top strip: occupied workspaces plus **one empty "N" slot** — single click
+  switches the preview, **double click enters the workspace** (works on
+  window thumbnails too); double click (or a window drop) on the N slot
+  creates and enters a fresh workspace, and the next empty slot appears
+  right away.
 - Bottom: large preview of the selected workspace — **click any window to
   land on exactly that app, maximized**.
 - Drag windows between thumbnails to move them across workspaces — drops
