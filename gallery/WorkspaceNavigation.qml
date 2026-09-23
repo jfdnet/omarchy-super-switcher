@@ -615,6 +615,21 @@ Singleton {
         const sourceIsEmptyAfterMove = targetWorkspace !== currentWorkspaceId
             && sourceVisibleWindows.length <= 1;
 
+        // Layout no-op: dropping the last window of the HIGHEST occupied
+        // workspace into the empty slot would move it to the fresh id and
+        // real-time renumbering would pull it right back — the round-trip is
+        // visible through the translucent overlay as a screen flash. Skip the
+        // window moves entirely and acknowledge the drop with the empty-slot
+        // reveal animation instead.
+        if (targetIsTrailing && sourceIsEmptyAfterMove) {
+            const occupiedIds = ServiceManager.workspace.occupiedWorkspaceIds();
+            const highest = occupiedIds.length > 0 ? occupiedIds[occupiedIds.length - 1] : 0;
+            if (currentWorkspaceId >= highest) {
+                GlobalStates.stripRevealTick += 1;
+                return true;
+            }
+        }
+
         // IDs of trailing cards may repeat per monitor. The caller resolves the
         // owning monitor from the rendered card before reaching this function.
         const targetMonitorName = String(targetMonitorHint ?? "");

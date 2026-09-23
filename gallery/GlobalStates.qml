@@ -59,6 +59,9 @@ Singleton {
     property var overviewCompactionTimeline: ({ emptyStages: [], shiftStages: [], duration: 0 })
     property real overviewCompactionElapsed: 0
     property int overviewRefreshSerial: 0
+    // Bumped when a drop into the empty slot was a layout no-op: the strip
+    // acknowledges it with the reveal animation without moving anything.
+    property int stripRevealTick: 0
     property bool regionSelectorOpen: false
     property bool screenshotActive: false
     property bool screenLocked: false

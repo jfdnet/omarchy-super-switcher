@@ -544,6 +544,15 @@ Item {
         function onGallerySwipeStarted(deltaX, timestamp) {
             root.beginSwipe(deltaX, timestamp);
         }
+        function onStripRevealTickChanged() {
+            if (GlobalStates.stripRevealTick <= 0)
+                return;
+            const index = root.entries.length - 1;
+            if (index < 0 || !root.entries[index].isTrailingEmpty)
+                return;
+            root.introPlans = ({ t: root.topStripEdgeEntryPlan(index) });
+            topIntroCleanupTimer.restart();
+        }
         function onGallerySwipeUpdated(deltaX, timestamp) {
             root.applySwipeDelta(deltaX, timestamp);
         }
@@ -631,9 +640,10 @@ Item {
                 const plan = root.introPlans[topCard.topKey];
                 return plan && plan.fade ? 0 : 1;
             }
-            Component.onCompleted: {
+            property bool introActive: false
+            function startIntroPlan() {
                 const plan = root.introPlans[topCard.topKey];
-                if (!plan)
+                if (!plan || topCard.introActive)
                     return;
                 const pauseMs = plan.fade ? root.topStripIntroPause : 0;
                 const slideMs = root.topStripIntroDuration;
@@ -662,10 +672,21 @@ Item {
                     topCardIntroOpacityAnimation.duration = Math.max(1, fadeMs - elapsed);
                     topCardIntroOpacityAnimation.start();
                 }
+                topCard.introActive = true;
                 topCardIntroSequence.start();
+            }
+            Component.onCompleted: topCard.startIntroPlan()
+            // An existing card can start a plan too (a layout no-op drop only
+            // fires the reveal without rebuilding the strip).
+            Connections {
+                target: root
+                function onIntroPlansChanged() {
+                    topCard.startIntroPlan();
+                }
             }
             SequentialAnimation {
                 id: topCardIntroSequence
+                onRunningChanged: if (!running) topCard.introActive = false
                 PauseAnimation {
                     id: topCardIntroPause
                     duration: 0
