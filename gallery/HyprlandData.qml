@@ -221,6 +221,30 @@ Singleton {
         return ids;
     }
 
+    // Hyprland's `focus({workspace = "empty"})` enters the first workspace
+    // with no windows. Resolve that id numerically — an id that does not exist
+    // yet counts as free, so a one-workspace session grows to 2, not 11 — so
+    // trailing-card activation can still pin the result to a monitor with
+    // workspace.move, which needs a concrete id.
+    function firstEmptyWorkspaceId() {
+        const pendingByAddress = GlobalStates.overviewPendingWindowWorkspaceByAddress ?? {};
+        const pendingTargetIds = Object.keys(pendingByAddress)
+            .map(address => Number(pendingByAddress[address]));
+        const pendingOccupiedIds = (GlobalStates.overviewPendingOccupiedWorkspaces ?? [])
+            .map(entry => Number(entry?.id ?? -1));
+        for (let id = 1; id <= 100; ++id) {
+            const workspace = root.workspaceById[id];
+            if (!workspace)
+                return id;
+            const hasWindows = root.windowList.some(win => (win?.workspace?.id ?? -1) === id)
+                || pendingTargetIds.includes(id)
+                || pendingOccupiedIds.includes(id);
+            if (!hasWindows)
+                return id;
+        }
+        return 0;
+    }
+
     function overviewWorkspaceEntriesForMonitor(monitorName, appendTrailing, reservedWorkspaceIds, orderByMru, includeEmptySystemSlots) {
         // Keep the argument for compatibility with older callers. The setting
         // is the single source of truth: when MRU is off, Overview must remain

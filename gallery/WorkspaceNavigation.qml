@@ -257,13 +257,25 @@ Singleton {
             Hyprland.dispatch(`hl.dsp.focus({monitor="${monitorName}"})`);
     }
 
+    function activateTrailingWorkspace(entry) {
+        const monitorName = String(entry?.monitorName ?? "");
+        // The trailing "New workspace" card carries a display-only id above
+        // the 1–10 strip. Entering it must land on the first free workspace
+        // (the same semantics as the Gallery double tap), so a one-workspace
+        // session grows to workspace 2 instead of 11.
+        const resolved = ServiceManager.workspace.firstEmptyWorkspaceId();
+        const workspaceId = resolved > 0 ? resolved : Number(entry?.id ?? 0);
+        if (workspaceId <= 0)
+            return;
+        root.focusMonitorForEntry(entry);
+        Hyprland.dispatch(`hl.dsp.focus({ workspace = ${workspaceId} })`);
+        if (monitorName.length > 0)
+            Hyprland.dispatch(`hl.dsp.workspace.move({ workspace = "${workspaceId}", monitor = "${monitorName}" })`);
+    }
+
     function commitSelectedWorkspace() {
         if (root.focusedEntryIsTrailingEmpty()) {
-            const entry = root.focusedEntry();
-            root.focusMonitorForEntry(entry);
-            Hyprland.dispatch(`hl.dsp.focus({ workspace = ${entry.id} })`);
-            if ((entry?.monitorName ?? "").length > 0)
-                Hyprland.dispatch(`hl.dsp.workspace.move({ workspace = "${entry.id}", monitor = "${entry.monitorName}" })`);
+            root.activateTrailingWorkspace(root.focusedEntry());
             return;
         }
 
