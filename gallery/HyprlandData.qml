@@ -204,42 +204,52 @@ Singleton {
             root.clientsLoaded && root.monitorsLoaded && root.workspacesLoaded);
     }
 
-    // Keep Omarchy's complete default workspace strip: 1..10 are always
-    // available, including empty slots, then show every real positive
-    // Hyprland workspace above 10. Hyprland itself has no ten-workspace
-    // limit and Overview must not hide windows moved to 11+.
-    function systemWorkspaceIds() {
+    // Ids of workspaces that currently hold windows (hidden windows keep a
+    // workspace occupied), merged with the optimistic pending state used while
+    // a drag is waiting for Hyprland to report the move.
+    function occupiedWorkspaceIds() {
         const ids = [];
-        for (let id = 1; id <= 10; ++id)
-            ids.push(id);
-        for (const workspace of root.workspaces) {
-            const id = Number(workspace?.id ?? -1);
-            if (id > 0 && id <= 100 && !ids.includes(id))
+        const seen = ({});
+        const consider = id => {
+            if (id >= 1 && id <= 100 && !seen[id]) {
+                seen[id] = true;
                 ids.push(id);
-        }
+            }
+        };
+        for (const win of root.windowList)
+            consider(Number(win?.workspace?.id ?? -1));
+        const pendingByAddress = GlobalStates.overviewPendingWindowWorkspaceByAddress ?? {};
+        for (const address of Object.keys(pendingByAddress))
+            consider(Number(pendingByAddress[address]));
+        const pendingOccupied = GlobalStates.overviewPendingOccupiedWorkspaces ?? [];
+        for (const entry of pendingOccupied)
+            consider(Number(entry?.id ?? -1));
         ids.sort((a, b) => a - b);
         return ids;
     }
 
+    // True when an empty workspace id sits below the highest occupied id —
+    // the strip keeps occupied ids consecutive, so holes left by drags are
+    // compacted away when the Gallery session closes.
+    function hasWorkspaceGaps() {
+        const ids = root.occupiedWorkspaceIds();
+        for (let i = 0; i < ids.length; ++i) {
+            if (ids[i] !== i + 1)
+                return true;
+        }
+        return false;
+    }
+
     // Hyprland's `focus({workspace = "empty"})` enters the first workspace
     // with no windows. Resolve that id numerically — an id that does not exist
-    // yet counts as free, so a one-workspace session grows to 2, not 11 — so
-    // trailing-card activation can still pin the result to a monitor with
-    // workspace.move, which needs a concrete id.
+    // yet counts as free — so trailing-card activation can still pin the
+    // result to a monitor with workspace.move, which needs a concrete id.
     function firstEmptyWorkspaceId() {
-        const pendingByAddress = GlobalStates.overviewPendingWindowWorkspaceByAddress ?? {};
-        const pendingTargetIds = Object.keys(pendingByAddress)
-            .map(address => Number(pendingByAddress[address]));
-        const pendingOccupiedIds = (GlobalStates.overviewPendingOccupiedWorkspaces ?? [])
-            .map(entry => Number(entry?.id ?? -1));
+        const occupied = ({});
+        for (const id of root.occupiedWorkspaceIds())
+            occupied[id] = true;
         for (let id = 1; id <= 100; ++id) {
-            const workspace = root.workspaceById[id];
-            if (!workspace)
-                return id;
-            const hasWindows = root.windowList.some(win => (win?.workspace?.id ?? -1) === id)
-                || pendingTargetIds.includes(id)
-                || pendingOccupiedIds.includes(id);
-            if (!hasWindows)
+            if (!occupied[id])
                 return id;
         }
         return 0;
@@ -251,7 +261,9 @@ Singleton {
         // in the same fixed numeric order as the top bar.
         const useMruOrder = GlobalStates.overviewSortMode === "legacy";
         const targetMonitor = monitorName ?? "";
-        const showEmptySystemSlots = includeEmptySystemSlots ?? (targetMonitor.length === 0);
+        // includeEmptySystemSlots is ignored: the Gallery strip never shows
+        // empty placeholder slots — occupied cards plus one trailing empty
+        // slot is the whole model.
         const reserved = reservedWorkspaceIds ?? {};
         const shouldAppendTrailing = appendTrailing !== false;
         const useSystemOrder = GlobalStates.overviewSortMode !== "legacy";
@@ -259,25 +271,21 @@ Singleton {
             ? root.monitors.find(mon => (mon.name ?? "") === targetMonitor)
             : null;
 
-        // Optimized order only shows occupied workspaces. System-native order
-        // keeps Omarchy's 1–10 strip, but live workspaces still belong to one
-        // monitor — do not copy another screen's windows into this overlay.
+        // Optimized order only shows occupied workspaces; the Gallery strip
+        // does the same in system order: occupied cards plus exactly ONE
+        // trailing empty slot (the first free id). The native 1–10
+        // placeholders and lingering empty workspaces are not cards — filling
+        // the trailing slot appends a fresh one on the next refresh.
         let regularWorkspaces;
         if (useSystemOrder) {
             regularWorkspaces = [];
-            for (const id of root.systemWorkspaceIds()) {
+            for (const id of root.occupiedWorkspaceIds()) {
                 const live = root.workspaceById[id];
-                if (live) {
-                    if (targetMonitor && root.workspaceMonitorName(live) !== targetMonitor)
-                        continue;
-                    regularWorkspaces.push(live);
-                } else if (showEmptySystemSlots) {
-                    regularWorkspaces.push({
-                        id,
-                        name: String(id),
-                        monitor: targetMonitor || root.monitors[0]?.name || ""
-                    });
-                }
+                if (!live)
+                    continue;
+                if (targetMonitor && root.workspaceMonitorName(live) !== targetMonitor)
+                    continue;
+                regularWorkspaces.push(live);
             }
         } else {
             regularWorkspaces = root.workspaces
@@ -383,37 +391,25 @@ Singleton {
         const ordered = orderedWindows.slice();
 
         if (shouldAppendTrailing) {
-            // Keep one creation target at the very end. System-native already
-            // shows empty 1–10, so trailing must not reuse those ids.
-            const usedIds = useSystemOrder ? root.systemWorkspaceIds() : [];
-            for (const workspace of root.workspaces) {
-                const id = Number(workspace?.id ?? -1);
-                if (id > 0 && id <= 100 && !usedIds.includes(id))
-                    usedIds.push(id);
-            }
-            const pendingIds = Object.keys(GlobalStates.overviewPendingWorkspaceMonitorById ?? {})
-                .map(id => Number(id));
+            // Keep one creation target at the very end: the first free id.
+            // Occupied workspaces and other monitors' trailing slots (the
+            // reserved set) are skipped; ids above every occupied id are only
+            // reached once the strip fills up.
             const usedIdSet = ({});
-            for (const id of usedIds)
+            for (const id of root.occupiedWorkspaceIds())
                 usedIdSet[id] = true;
-            for (const id of pendingIds) {
-                if (id > 0 && id <= 100) {
-                    usedIdSet[id] = true;
-                    if (!usedIds.includes(id))
-                        usedIds.push(id);
-                }
-            }
             for (const key of Object.keys(reserved)) {
                 const id = Number(key);
                 if (id > 0 && id <= 100)
                     usedIdSet[id] = true;
             }
-            let trailingId = useSystemOrder
-                ? root.allocateSystemTrailingWorkspaceId(usedIdSet, reserved)
-                : WorkspaceOrder.allocateId(usedIdSet, reserved);
-            while (useSystemOrder && trailingId > 0 && trailingId <= 100
-                    && (usedIds.includes(trailingId) || reserved[trailingId]))
-                trailingId += 1;
+            let trailingId = 0;
+            for (let id = 1; id <= 100; ++id) {
+                if (!usedIdSet[id]) {
+                    trailingId = id;
+                    break;
+                }
+            }
             if (trailingId > 0 && trailingId <= 100) {
                 reserved[trailingId] = true;
                 ordered.push({
@@ -427,29 +423,6 @@ Singleton {
         }
 
         return ordered;
-    }
-
-    // 1–10 are already on the native strip when shown, so skip occupied and
-    // reserved ids, then allocate 11+.
-    function allocateSystemTrailingWorkspaceId(usedIdSet, reservedIds) {
-        const reserved = reservedIds ?? {};
-        for (let id = 6; id <= 10; id++) {
-            if (!usedIdSet[id] && !reserved[id])
-                return id;
-        }
-
-        let highest = 10;
-        for (const key of Object.keys(usedIdSet)) {
-            const id = Number(key);
-            if (id > highest && id <= 100)
-                highest = id;
-        }
-        for (const key of Object.keys(reserved)) {
-            const id = Number(key);
-            if (id > highest && id <= 100)
-                highest = id;
-        }
-        return highest + 1;
     }
 
     function overviewWorkspaceEntriesGlobal(orderByMru) {

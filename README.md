@@ -22,12 +22,17 @@ gesture-driven workspace gallery — tuned for **stock Hyprland**.
 - Live workspace previews, cycling with Super+Tab / Super+Shift+Tab.
 
 ### Workspace Gallery — Super+A (gesture driven)
-- Top strip: live thumbnails of every workspace — single click switches the
-  preview, **double click enters the workspace**; double click on an empty
-  slot creates and enters a fresh workspace.
+- Top strip: occupied workspaces plus **one empty "＋" slot** — single click
+  switches the preview, **double click enters the workspace**; double click
+  (or a window drop) on the empty slot creates and enters a fresh workspace,
+  and the next empty slot appears right away.
 - Bottom: large preview of the selected workspace — **click any window to
   land on exactly that app, maximized**.
-- Drag windows between thumbnails to move them across workspaces.
+- Drag windows between thumbnails to move them across workspaces — drops
+  always land where released. When the gallery closes after a session that
+  emptied a workspace, ids compact once so the bar stays consecutive
+  (dragging both windows off workspace 1 closes as workspaces 1 and 2, never
+  2 and 3).
 - Three-finger swipe up/down to open/close, left/right to browse; two-finger
   pinch (or `Down`) compacts occupied workspaces into consecutive numbers.
 - Gestures need one setup step:
@@ -66,9 +71,11 @@ omarchy plugin remove io.github.jfdnet.super-switcher
   （已全屏的保持原模式）；光标锁进落点窗口防抢焦
 - **顶栏工作区标号**：≥2 个工作区占用时显示编号（聚焦高亮，点击跳转）
 - **Super+Tab**：工作区实时总览
-- **Super+A 工作区 Gallery**：顶部缩略图单击预览/双击进入（空白槽位双击
-  新建）、大预览里点哪个 app 就全屏切到哪个 app、拖拽窗口跨工作区、
-  三指手势开关、捏合压缩工作区编号
+- **Super+A 工作区 Gallery**：顶部缩略图 = 已占用工作区 + 一个「＋」空槽
+  （单击预览/双击进入，双击或拖入空槽即新建并进入，槽满后自动追加下一个
+  空槽）、大预览里点哪个 app 就全屏切到哪个 app、拖拽窗口跨工作区（落点
+  即时生效，关闭画廊时自动压缩空洞、顶栏编号保持连续）、三指手势开关、
+  捏合压缩工作区编号
   （手势需执行一次 `python3 gallery/scripts/gesture_config.py install`）
 
 ## License

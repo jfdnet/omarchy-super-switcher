@@ -14,6 +14,7 @@ Singleton {
     id: root
 
     property int pendingDragRefreshes: 0
+    property bool dragMovedWorkspace: false
     property bool compactingWorkspaces: false
     property var compactClientsSnapshot: []
     property var pendingCompactionPlan: null
@@ -300,6 +301,20 @@ Singleton {
         compactGuardTimer.restart();
         compactClientsProcess.running = true;
         return true;
+    }
+
+    // Drags must land where dropped — never renumber mid-session. When the
+    // Gallery closes after a session that moved windows across workspaces,
+    // compact once so emptied holes below occupied ids are reclaimed (the bar
+    // ends up consecutive: dragging both windows off workspace 1 onto fresh
+    // slots closes as workspaces 1 and 2, not 2 and 3).
+    function autoCompactAfterGalleryClose() {
+        if (!root.dragMovedWorkspace)
+            return;
+        root.dragMovedWorkspace = false;
+        if (!ServiceManager.workspace.hasWorkspaceGaps())
+            return;
+        root.compactWorkspaces();
     }
 
     function closeMostRecentWindowInWorkspace(workspaceId) {
@@ -613,6 +628,7 @@ Singleton {
 
         GlobalStates.refreshOverviewModel();
         root.pendingDragRefreshes = 4;
+        root.dragMovedWorkspace = true;
         refreshAfterDragTimer.restart();
         return true;
     }

@@ -72,6 +72,15 @@ Rectangle {
         opacity: page.entry?.isTrailingEmpty ? 0.58 : 0.9
     }
 
+    Text {
+        anchors.centerIn: parent
+        visible: page.entry?.isTrailingEmpty ?? false
+        text: qsTr("New workspace")
+        font.pixelSize: Appearance.font.pixelSize.normal
+        font.weight: Font.DemiBold
+        color: ColorUtils.transparentize(TuiStyle.fg, 0.25)
+    }
+
     Rectangle {
         anchors.fill: parent
         color: pageDrop.containsDrag

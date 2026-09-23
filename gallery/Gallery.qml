@@ -153,6 +153,8 @@ Scope {
             GlobalStates.overviewOpen = false;
             galleryScope.closing = false;
             galleryScope.commitSelectionAfterClose = false;
+            // 会话结束：统一清理拖拽留下的空工作区空洞（顶栏编号收敛为连续）
+            WorkspaceNavigation.autoCompactAfterGalleryClose();
             // 层焦点已释放，此刻派发窗口聚焦才真正生效（等 80ms 让 unmap 完成）
             if (galleryScope.pendingActivation)
                 pendingActivateTimer.restart();
