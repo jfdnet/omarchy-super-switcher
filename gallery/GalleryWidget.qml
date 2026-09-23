@@ -1004,6 +1004,11 @@ Item {
             const plan = root.enteringTopCard;
             if (!plan)
                 return;
+            // A new tick may arrive while the previous flight is still
+            // running (users re-drop faster than the 1.6 s cycle): stop
+            // everything first so the restart isn't ignored or clobbered.
+            topEnteringSequence.stop();
+            topEnteringOpacityAnimation.stop();
             const x = root.topCardXForIndex(plan.index);
             topEntering.x = x;
             topEntering.introOffset = Math.max(root.topCardWidth * 0.5 + root.cardGap,
@@ -1012,16 +1017,21 @@ Item {
             topEntering.visible = true;
             topEnteringPause.duration = root.topStripIntroPause;
             topEnteringOffsetAnimation.duration = root.topStripIntroDuration;
+            topEnteringOpacityAnimation.duration = 300;
+            topEnteringOpacityAnimation.start();
             topEnteringSequence.start();
         }
 
         Connections {
             target: root
             function onEnteringTopCardChanged() {
-                if (root.enteringTopCard)
+                if (root.enteringTopCard) {
                     topEntering.startEntering();
-                else
+                } else {
+                    topEnteringSequence.stop();
+                    topEnteringOpacityAnimation.stop();
                     topEntering.visible = false;
+                }
             }
         }
 
@@ -1047,7 +1057,6 @@ Item {
             to: 1
             duration: 300
             easing.type: Easing.OutCubic
-            running: topEntering.visible
         }
     }
 
