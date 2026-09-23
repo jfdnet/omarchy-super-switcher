@@ -369,30 +369,42 @@ Item {
 
     // ---- Top-strip transitions ------------------------------------------------
     // The strip model is a plain array, so reassignments rebuild every delegate
-    // without ListView add/remove transitions. Diff entries by id instead:
-    // emptied cards leave as upward-sliding ghosts, newly appearing cards
-    // (freshly filled trailing slot's successor, a reclaimed empty id) slide in
-    // from the right.
+    // without ListView transitions. Diff entries on each change and hand each
+    // rebuilt delegate a start-offset plan:
+    //  - emptied workspaces leave as upward-sliding ghosts;
+    //  - the trailing empty slot is a persistent entity — it slides left into
+    //    the vacated position when the strip shrinks, and only enters from the
+    //    screen's right edge when the strip grows (a drop just filled it);
+    //  - occupied cards slide from their old slot; a freshly filled slot
+    //    keeps its position; brand-new workspaces enter from the right edge.
     property var previousTopEntries: null
-    property var introIds: ({})
+    property var introPlans: ({})
     property var exitingTopCards: []
 
     Timer {
         id: topGhostCleanupTimer
-        interval: 300
+        interval: 460
         repeat: false
         onTriggered: root.exitingTopCards = []
     }
 
     Timer {
         id: topIntroCleanupTimer
-        interval: 340
+        interval: 560
         repeat: false
-        onTriggered: root.introIds = ({})
+        onTriggered: root.introPlans = ({})
     }
 
     function topCardXForIndex(index) {
         return topList.x + index * (root.topCardWidth + root.cardGap) - topList.contentX;
+    }
+
+    function topStripEdgeEntryPlan(index) {
+        return {
+            offset: Math.max(root.topCardWidth + root.cardGap,
+                root.width - root.topCardXForIndex(index)),
+            fade: true
+        };
     }
 
     function updateTopStripTransitions() {
@@ -408,19 +420,16 @@ Item {
         }
 
         const previousOccupied = ({});
-        let previousTrailing = -1;
+        let previousTrailingIndex = -1;
         previous.forEach((entry, index) => {
             if (entry.isTrailingEmpty)
-                previousTrailing = entry.id;
+                previousTrailingIndex = index;
             else
                 previousOccupied[entry.id] = index;
         });
         const nextOccupied = ({});
-        let nextTrailing = -1;
         root.entries.forEach((entry, index) => {
-            if (entry.isTrailingEmpty)
-                nextTrailing = entry.id;
-            else
+            if (!entry.isTrailingEmpty)
                 nextOccupied[entry.id] = index;
         });
 
@@ -433,29 +442,44 @@ Item {
                     isTrailing: false
                 });
         }
-        // The old trailing slot only leaves a ghost when it was not filled in
-        // place (filled slots keep their card and thumbnail).
-        if (previousTrailing > 0 && previousTrailing !== nextTrailing
-                && nextOccupied[previousTrailing] === undefined)
-            ghosts.push({
-                id: previousTrailing,
-                x: root.topCardXForIndex(previous.length - 1),
-                isTrailing: true
-            });
         if (ghosts.length > 0) {
             root.exitingTopCards = root.exitingTopCards.concat(ghosts);
             topGhostCleanupTimer.restart();
         }
 
-        const intros = ({});
-        if (nextTrailing > 0 && nextTrailing !== previousTrailing)
-            intros[nextTrailing] = true;
-        for (const idKey of Object.keys(nextOccupied)) {
-            if (previousOccupied[idKey] === undefined && Number(idKey) !== previousTrailing)
-                intros[idKey] = true;
-        }
-        if (Object.keys(intros).length > 0) {
-            root.introIds = intros;
+        const plans = ({});
+        root.entries.forEach((entry, index) => {
+            const key = `${entry.id}:${entry.isTrailingEmpty ? 1 : 0}`;
+            const newX = root.topCardXForIndex(index);
+            if (entry.isTrailingEmpty) {
+                if (index > previousTrailingIndex) {
+                    plans[key] = root.topStripEdgeEntryPlan(index);
+                } else if (previousTrailingIndex >= 0) {
+                    const offset = root.topCardXForIndex(previousTrailingIndex) - newX;
+                    if (offset !== 0)
+                        plans[key] = { offset, fade: false };
+                }
+                return;
+            }
+            if (previousOccupied[entry.id] !== undefined) {
+                const offset = root.topCardXForIndex(previousOccupied[entry.id]) - newX;
+                if (offset !== 0)
+                    plans[key] = { offset, fade: false };
+                return;
+            }
+            if (previousTrailingIndex >= 0
+                    && previous[previousTrailingIndex]?.id === entry.id) {
+                // The trailing slot was just filled: the card keeps its place
+                // (or glides) and only gains its window thumbnail.
+                const offset = root.topCardXForIndex(previousTrailingIndex) - newX;
+                if (offset !== 0)
+                    plans[key] = { offset, fade: false };
+                return;
+            }
+            plans[key] = root.topStripEdgeEntryPlan(index);
+        });
+        if (Object.keys(plans).length > 0) {
+            root.introPlans = plans;
             topIntroCleanupTimer.restart();
         }
         root.previousTopEntries = root.entries;
@@ -542,20 +566,20 @@ Item {
             border.width: 0
             readonly property var compactionVisual:
                 root.compactionVisualForWorkspace(topCard.modelData.id)
-            // Cards appearing in the strip slide in from the right edge of
-            // the screen (a long, obvious travel) once; the key is consumed on
-            // first render so refresh-driven delegate rebuilds never replay
-            // the animation.
-            property real introOffset: root.introIds[topCard.modelData.id] === true
-                ? Math.max(root.topCardWidth + root.cardGap,
-                    root.width - (topList.x
-                        + topCard.index * (root.topCardWidth + root.cardGap)
-                        - topList.contentX))
-                : 0
-            property real introOpacity: topCard.introOffset > 0 ? 0 : 1
+            // Slide-in/displacement plan, consumed on first render so
+            // refresh-driven delegate rebuilds never replay the animation.
+            readonly property string topKey: `${topCard.modelData.id}:${topCard.modelData.isTrailingEmpty ? 1 : 0}`
+            property real introOffset: {
+                const plan = root.introPlans[topCard.topKey];
+                return plan ? plan.offset : 0;
+            }
+            property real introOpacity: {
+                const plan = root.introPlans[topCard.topKey];
+                return plan && plan.fade ? 0 : 1;
+            }
             Component.onCompleted: {
-                if (topCard.introOffset > 0) {
-                    delete root.introIds[topCard.modelData.id];
+                if (topCard.introOffset !== 0) {
+                    delete root.introPlans[topCard.topKey];
                     topCardIntroAnimation.start();
                 }
             }
@@ -565,14 +589,14 @@ Item {
                     target: topCard
                     property: "introOffset"
                     to: 0
-                    duration: 320
-                    easing.type: Easing.OutCubic
+                    duration: 480
+                    easing.type: Easing.OutQuint
                 }
                 NumberAnimation {
                     target: topCard
                     property: "introOpacity"
                     to: 1
-                    duration: 200
+                    duration: 240
                     easing.type: Easing.OutCubic
                 }
             }
@@ -724,16 +748,16 @@ Item {
                 NumberAnimation {
                     target: topGhost
                     property: "y"
-                    to: topList.y - root.topCardHeight * 0.75
-                    duration: 240
-                    easing.type: Easing.InCubic
+                    to: topList.y - root.topCardHeight * 0.85
+                    duration: 420
+                    easing.type: Easing.OutQuart
                 }
                 NumberAnimation {
                     target: topGhost
                     property: "opacity"
                     to: 0
-                    duration: 240
-                    easing.type: Easing.InCubic
+                    duration: 380
+                    easing.type: Easing.OutQuart
                 }
             }
         }
