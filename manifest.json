@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.jfdnet.super-switcher",
   "name": "Omarchy Super Switcher",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "author": "jfdnet",
   "license": "MIT",
   "description": "Window management for Omarchy: fast cross-workspace Alt+Tab with maximized landings, workspace numbers on the bar, live workspace overview (Super+Tab), and a gesture-driven workspace gallery (Super+A) with click-to-focus and drag-and-drop.",

@@ -16,6 +16,7 @@ Singleton {
     property int pendingDragRefreshes: 0
     property bool dragMovedWorkspace: false
     property bool compactingWorkspaces: false
+    property bool compactionAnimated: true
     property var compactClientsSnapshot: []
     property var pendingCompactionPlan: null
     property bool closingSelectedWindow: false
@@ -294,11 +295,12 @@ Singleton {
         return Number(mapping?.[id] ?? id);
     }
 
-    function compactWorkspaces() {
+    function compactWorkspaces(animated) {
         if (root.compactingWorkspaces)
             return false;
 
         root.compactingWorkspaces = true;
+        root.compactionAnimated = animated !== false;
         compactGuardTimer.restart();
         compactClientsProcess.running = true;
         return true;
@@ -324,7 +326,7 @@ Singleton {
             root.dragMovedWorkspace = false;
             return;
         }
-        if (root.compactWorkspaces())
+        if (root.compactWorkspaces(false))
             root.dragMovedWorkspace = false;
     }
 
@@ -334,7 +336,7 @@ Singleton {
         root.dragMovedWorkspace = false;
         if (!ServiceManager.workspace.hasWorkspaceGaps())
             return;
-        root.compactWorkspaces();
+        root.compactWorkspaces(false);
     }
 
     function closeMostRecentWindowInWorkspace(workspaceId) {
@@ -369,6 +371,13 @@ Singleton {
         }
 
         root.pendingCompactionPlan = plan;
+        if (!root.compactionAnimated) {
+            // Silent renumber (drag settle / gallery close): the drag's own
+            // strip transitions already told the story — no choreography and
+            // no handoff screen-grab, which read as a full-screen flash.
+            root.commitPendingWorkspaceCompaction();
+            return true;
+        }
         const timeline = WorkspaceCompact.buildAnimationPlan(plan.sourceIds);
         GlobalStates.overviewCompactionMoves = plan.moves;
         GlobalStates.overviewCompactionTimeline = timeline;
@@ -393,9 +402,12 @@ Singleton {
 
         // Hide preview contents while their backing workspaces change. The card
         // shells snap into their final slots under the fade, avoiding a reverse
-        // slide after the compositor reports the new workspace ids.
-        GlobalStates.overviewCompactionSyncing = true;
-        GlobalStates.overviewCompactionAnimating = false;
+        // slide after the compositor reports the new workspace ids. (Animated
+        // mode only — silent renumbers skip the overlay entirely.)
+        if (root.compactionAnimated) {
+            GlobalStates.overviewCompactionSyncing = true;
+            GlobalStates.overviewCompactionAnimating = false;
+        }
 
         const pendingWindows = Object.assign({},
             GlobalStates.overviewPendingWindowWorkspaceByAddress ?? {});
@@ -442,7 +454,10 @@ Singleton {
         GlobalStates.refreshOverviewModel();
         root.pendingDragRefreshes = 6;
         refreshAfterDragTimer.restart();
-        compactionRevealTimer.restart();
+        if (root.compactionAnimated)
+            compactionRevealTimer.restart();
+        else
+            root.finishWorkspaceCompaction();
         return true;
     }
 

@@ -416,34 +416,17 @@ Item {
     }
 
     function updateTopStripTransitions() {
-        // Compaction runs its own card choreography; re-arm silently around it.
-        if (GlobalStates.overviewCompactionAnimating || GlobalStates.overviewCompactionSyncing) {
+        // Compaction (animated choreography or silent renumber) re-keys ids in
+        // place; re-arm silently while it runs so the diff never stacks motion
+        // on top of it. In-flight slot-keyed plans survive the re-keys.
+        if (WorkspaceNavigation.compactingWorkspaces
+                || GlobalStates.overviewCompactionAnimating
+                || GlobalStates.overviewCompactionSyncing) {
             root.previousTopEntries = null;
             return;
         }
         const previous = root.previousTopEntries;
         if (previous === null) {
-            root.previousTopEntries = root.entries;
-            return;
-        }
-
-        // Transient gapped layouts (a middle workspace just emptied) are
-        // renumbered in real time by compaction, whose own choreography
-        // animates the closing. Stay silent here so the diff never stacks a
-        // second layer of motion on top of it.
-        let contiguous = true;
-        let previousOccupiedId = 0;
-        for (let i = 0; i < root.entries.length; ++i) {
-            const entry = root.entries[i];
-            if (entry.isTrailingEmpty)
-                break;
-            if (previousOccupiedId > 0 && entry.id !== previousOccupiedId + 1) {
-                contiguous = false;
-                break;
-            }
-            previousOccupiedId = entry.id;
-        }
-        if (!contiguous) {
             root.previousTopEntries = root.entries;
             return;
         }
@@ -465,20 +448,50 @@ Item {
                 nextOccupied[entry.id] = index;
         });
 
-        // Transition rules:
-        //  - A new empty slot is BORN when the old one got filled (its id is
-        //    now occupied — even if the source workspace emptied in the same
-        //    action, keeping the strip length unchanged) or when the strip
-        //    otherwise grew: it reveals from the right edge with its beat.
-        //  - Otherwise the empty slot continues and only glides when the
-        //    strip shrinks under it.
-        //  - Occupied cards glide from their old slot; a card filling the old
-        //    empty-slot position, or continuing in the slot of the workspace
-        //    its window came from, keeps its position (no ghost, no entry).
-        //  - Removed cards whose slot nobody inherits leave as ghosts.
+        // Transition rules (plans keyed by ARRIVAL SLOT — "t" for the empty
+        // slot's stable letter identity, "s<index>" for occupied cards — so
+        // the real-time renumbering that re-keys ids in place never orphans a
+        // running animation):
+        //  - the empty slot is BORN when the old number got filled (even if
+        //    the source emptied in the same action) or the strip grew:
+        //    reveal from the right edge with its beat; otherwise it continues
+        //    and only glides when the strip shrinks under it;
+        //  - occupied cards glide from their old slot; a card filling the
+        //    empty slot's position, or continuing in the slot of the emptied
+        //    workspace, keeps its position;
+        //  - removed cards whose slot no stationary card inherits ghost up.
         const fillHappened = previousTrailingId > 0
             && nextOccupied[previousTrailingId] !== undefined;
         const grew = root.entries.length > previous.length;
+
+        const plans = ({});
+        const now = Date.now();
+        root.entries.forEach((entry, index) => {
+            const newX = root.topCardXForIndex(index);
+            if (entry.isTrailingEmpty) {
+                if (fillHappened || grew || previousTrailingIndex < 0) {
+                    plans["t"] = root.topStripEdgeEntryPlan(index);
+                } else {
+                    const offset = root.topCardXForIndex(previousTrailingIndex) - newX;
+                    if (offset !== 0)
+                        plans["t"] = { offset, fade: false, startAt: now };
+                }
+                return;
+            }
+            if (previousOccupied[entry.id] !== undefined) {
+                const offset = root.topCardXForIndex(previousOccupied[entry.id]) - newX;
+                if (offset !== 0)
+                    plans[`s${index}`] = { offset, fade: false, startAt: now };
+                return;
+            }
+            const previousAtSlot = previous[index];
+            if (previousAtSlot && previousAtSlot.isTrailingEmpty)
+                return;   // this card just filled the empty slot — keep its place
+            if (previousAtSlot && nextOccupied[previousAtSlot.id] === undefined
+                    && previousAtSlot.id !== entry.id)
+                return;   // slot continuity — the emptied workspace's card lives on here
+            plans[`s${index}`] = root.topStripEdgeEntryPlan(index);
+        });
 
         const ghosts = [];
         for (const idKey of Object.keys(previousOccupied)) {
@@ -487,8 +500,8 @@ Item {
             const oldIndex = previousOccupied[idKey];
             const replacement = root.entries[oldIndex];
             if (replacement && !replacement.isTrailingEmpty
-                    && replacement.id !== Number(idKey))
-                continue;   // the mover's card continues in this slot
+                    && plans[`s${oldIndex}`] === undefined)
+                continue;   // a stationary card continues in this slot (re-key)
             ghosts.push({
                 id: Number(idKey),
                 x: root.topCardXForIndex(oldIndex)
@@ -498,36 +511,6 @@ Item {
             root.exitingTopCards = root.exitingTopCards.concat(ghosts);
             topGhostCleanupTimer.restart();
         }
-
-        const plans = ({});
-        const now = Date.now();
-        root.entries.forEach((entry, index) => {
-            const key = `${entry.id}:${entry.isTrailingEmpty ? 1 : 0}`;
-            const newX = root.topCardXForIndex(index);
-            if (entry.isTrailingEmpty) {
-                if (fillHappened || grew || previousTrailingIndex < 0) {
-                    plans[key] = root.topStripEdgeEntryPlan(index);
-                } else {
-                    const offset = root.topCardXForIndex(previousTrailingIndex) - newX;
-                    if (offset !== 0)
-                        plans[key] = { offset, fade: false, startAt: now };
-                }
-                return;
-            }
-            if (previousOccupied[entry.id] !== undefined) {
-                const offset = root.topCardXForIndex(previousOccupied[entry.id]) - newX;
-                if (offset !== 0)
-                    plans[key] = { offset, fade: false, startAt: now };
-                return;
-            }
-            if (previousTrailingIndex >= 0
-                    && previous[previousTrailingIndex]?.id === entry.id)
-                return;   // this card just filled the empty slot — keep its place
-            const previousAtSlot = previous[index];
-            if (previousAtSlot && nextOccupied[previousAtSlot.id] === undefined)
-                return;   // slot continuity — the emptied workspace's card lives on here
-            plans[key] = root.topStripEdgeEntryPlan(index);
-        });
         if (Object.keys(plans).length > 0) {
             root.introPlans = plans;
             topIntroCleanupTimer.restart();
@@ -624,7 +607,9 @@ Item {
             // the elapsed time instead of popping into place. Plain
             // displacements (strip shrank / cards shifted) glide without the
             // reveal beat.
-            readonly property string topKey: `${topCard.modelData.id}:${topCard.modelData.isTrailingEmpty ? 1 : 0}`
+            readonly property string topKey: topCard.modelData.isTrailingEmpty
+                ? "t"
+                : `s${topCard.index}`
             property real introOffset: {
                 const plan = root.introPlans[topCard.topKey];
                 return plan ? plan.offset : 0;
@@ -727,6 +712,37 @@ Item {
                 color: topDrop.containsDrag
                     ? ColorUtils.transparentize(TuiStyle.accent, 0.72)
                     : "transparent"
+            }
+
+            // Stable identity: the empty slot is always "N" (a letter, never
+            // renumbered); occupied cards carry their real workspace number,
+            // which the real-time renumbering keeps consecutive.
+            Rectangle {
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 6
+                width: topCardBadgeLabel.implicitWidth + 12
+                height: topCardBadgeLabel.implicitHeight + 5
+                radius: height / 2
+                color: ColorUtils.transparentize(TuiStyle.bg, 0.2)
+                border.width: 1
+                border.color: topCard.modelData.isTrailingEmpty
+                    ? ColorUtils.transparentize(TuiStyle.accent, 0.35)
+                    : ColorUtils.transparentize(TuiStyle.fg, 0.6)
+                z: 120
+
+                Text {
+                    id: topCardBadgeLabel
+                    anchors.centerIn: parent
+                    text: topCard.modelData.isTrailingEmpty
+                        ? "N"
+                        : String(topCard.modelData.id)
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    font.weight: Font.DemiBold
+                    color: topCard.modelData.isTrailingEmpty
+                        ? TuiStyle.accent
+                        : TuiStyle.fg
+                }
             }
 
             Item {
