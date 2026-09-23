@@ -665,17 +665,83 @@ Singleton {
         }
 
         if (targetIsTrailing) {
-            const pendingOccupied = GlobalStates.overviewPendingOccupiedWorkspaces ?? [];
-            const filtered = pendingOccupied.filter(entry => entry?.id !== targetWorkspace);
-            filtered.push({
-                id: targetWorkspace,
+            let finalTarget = targetWorkspace;
+            let survivorMoves = [];
+            if (sourceIsEmptyAfterMove) {
+                // Fold the real-time renumber INTO the drop: the dragged
+                // window goes straight to its final consecutive slot and the
+                // survivors pull down, in one atomic dispatch behind a
+                // shelter focus. The strip layout never changes structurally
+                // (same slot count, same consecutive ids), so nothing
+                // rebuilds, nothing re-captures, and no intermediate gapped
+                // layout exists to animate wrongly.
+                const compacted = ServiceManager.workspace.occupiedWorkspaceIds()
+                    .filter(id => id !== currentWorkspaceId);
+                compacted.push(targetWorkspace);
+                compacted.sort((a, b) => a - b);
+                finalTarget = compacted.indexOf(targetWorkspace) + 1;
+                for (let i = 0; i < compacted.length; ++i) {
+                    const sourceId = compacted[i];
+                    if (sourceId !== i + 1 && sourceId !== targetWorkspace)
+                        survivorMoves.push({ from: sourceId, to: i + 1 });
+                }
+            }
+            GlobalStates.setPendingWindowWorkspace(windowAddress, finalTarget);
+
+            const pendingOccupied = (GlobalStates.overviewPendingOccupiedWorkspaces ?? [])
+                .filter(entry => entry?.id !== targetWorkspace && entry?.id !== finalTarget);
+            pendingOccupied.push({
+                id: finalTarget,
                 monitorName: targetMonitorName,
                 sourceWorkspaceId: currentWorkspaceId
             });
-            GlobalStates.overviewPendingOccupiedWorkspaces = filtered;
-            root.dispatchPlacedWindowMove(windowAddress, currentWorkspaceId, targetWorkspace, placement);
-            if (targetMonitorName.length > 0)
-                Hyprland.dispatch(`hl.dsp.workspace.move({ workspace = "${targetWorkspace}", monitor = "${targetMonitorName}" })`);
+
+            const survivorCommands = [];
+            for (const move of survivorMoves) {
+                for (const win of ServiceManager.workspace.windowList) {
+                    if ((win?.workspace?.id ?? -1) !== move.from)
+                        continue;
+                    const address = ServiceManager.workspace.normalizeAddress(win?.address);
+                    if (address.length === 0)
+                        continue;
+                    GlobalStates.setPendingWindowWorkspace(address, move.to);
+                    survivorCommands.push(`hl.dispatch(hl.dsp.window.move({ workspace = ${move.to}, follow = false, window = ${root.luaQuoted(`address:${address}`)} }))`);
+                }
+                if (targetMonitorName.length > 0)
+                    survivorCommands.push(`hl.dispatch(hl.dsp.workspace.move({ workspace = "${move.to}", monitor = ${root.luaQuoted(targetMonitorName)} }))`);
+                pendingOccupied.push({
+                    id: move.to,
+                    monitorName: targetMonitorName,
+                    sourceWorkspaceId: move.from
+                });
+            }
+
+            // Renumbering must never show through the translucent overlay:
+            // when any landing slot is the workspace visible behind the
+            // Gallery, focus the empty successor for the duration of the
+            // moves (the screen was already vacated by the drag). The
+            // Gallery's selection focus on close restores the landing spot.
+            if (survivorCommands.length > 0) {
+                const activeWorkspaceId = ServiceManager.workspace.activeWorkspace?.id ?? 0;
+                const landingIds = survivorMoves.map(move => move.to).concat([finalTarget]);
+                if (activeWorkspaceId > 0 && landingIds.includes(activeWorkspaceId))
+                    Hyprland.dispatch(`hl.dsp.focus({ workspace = ${targetWorkspace + 1} })`);
+            }
+
+            root.dispatchPlacedWindowMove(windowAddress, currentWorkspaceId, finalTarget, placement);
+            if (targetMonitorName.length > 0) {
+                Hyprland.dispatch(`hl.dsp.workspace.move({ workspace = "${finalTarget}", monitor = "${targetMonitorName}" })`);
+                const pending = GlobalStates.overviewPendingWorkspaceMonitorById ?? {};
+                const nextPending = Object.assign({}, pending);
+                nextPending[finalTarget] = targetMonitorName;
+                GlobalStates.overviewPendingWorkspaceMonitorById = nextPending;
+            }
+            if (survivorCommands.length > 0)
+                Hyprland.dispatch(`function()\n${survivorCommands.map(command => `            ${command}`).join("\n")}\n        end`);
+            GlobalStates.overviewPendingOccupiedWorkspaces = pendingOccupied;
+            // The strip keeps its structure — acknowledge with the reveal.
+            if (sourceIsEmptyAfterMove)
+                GlobalStates.stripRevealTick += 1;
         } else {
             if (!root.dispatchPlacedWindowMove(windowAddress, currentWorkspaceId, targetWorkspace, placement))
                 return false;
