@@ -623,9 +623,22 @@ Item {
         }
     }
 
+    // Opaque, wallpaper-backed backdrop (Mission Control style): the live
+    // desktop never shows through the overlay, so window movements behind it
+    // — drops onto the visible workspace, renumbering, focus dances — can
+    // never read as screen flashes. The bottom preview already paints the
+    // same wallpaper, so the backdrop reads as one surface.
+    Image {
+        anchors.fill: parent
+        source: root.wallpaperUrl
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: false
+        cache: true
+    }
+
     Rectangle {
         anchors.fill: parent
-        color: ColorUtils.transparentize(TuiStyle.bg, 0.06)
+        color: ColorUtils.transparentize(TuiStyle.bg, 0.3)
     }
 
     Rectangle {
