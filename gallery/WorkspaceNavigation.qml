@@ -260,12 +260,10 @@ Singleton {
 
     function activateTrailingWorkspace(entry) {
         const monitorName = String(entry?.monitorName ?? "");
-        // The trailing "New workspace" card carries a display-only id above
-        // the 1–10 strip. Entering it must land on the first free workspace
-        // (the same semantics as the Gallery double tap), so a one-workspace
-        // session grows to workspace 2 instead of 11.
-        const resolved = ServiceManager.workspace.firstEmptyWorkspaceId();
-        const workspaceId = resolved > 0 ? resolved : Number(entry?.id ?? 0);
+        // The trailing card's id is a fresh number above every occupied id
+        // (never a recycled hole), so entering it creates exactly that
+        // workspace — consistent with where the card sits in the strip.
+        const workspaceId = Number(entry?.id ?? 0);
         if (workspaceId <= 0)
             return;
         root.focusMonitorForEntry(entry);

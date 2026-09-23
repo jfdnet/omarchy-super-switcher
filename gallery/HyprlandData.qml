@@ -205,8 +205,10 @@ Singleton {
     }
 
     // Ids of workspaces that currently hold windows (hidden windows keep a
-    // workspace occupied), merged with the optimistic pending state used while
-    // a drag is waiting for Hyprland to report the move.
+    // workspace occupied), adjusted for optimistic drag state: a window with a
+    // pending target has already left its stale slot, so the source is not
+    // counted — otherwise the strip model oscillates between transitional
+    // layouts while drags settle and card identities churn mid-animation.
     function occupiedWorkspaceIds() {
         const ids = [];
         const seen = ({});
@@ -216,9 +218,13 @@ Singleton {
                 ids.push(id);
             }
         };
-        for (const win of root.windowList)
-            consider(Number(win?.workspace?.id ?? -1));
         const pendingByAddress = GlobalStates.overviewPendingWindowWorkspaceByAddress ?? {};
+        for (const win of root.windowList) {
+            const address = root.normalizeAddress(win?.address);
+            if (address.length > 0 && pendingByAddress[address] !== undefined)
+                continue;
+            consider(Number(win?.workspace?.id ?? -1));
+        }
         for (const address of Object.keys(pendingByAddress))
             consider(Number(pendingByAddress[address]));
         const pendingOccupied = GlobalStates.overviewPendingOccupiedWorkspaces ?? [];
@@ -238,21 +244,6 @@ Singleton {
                 return true;
         }
         return false;
-    }
-
-    // Hyprland's `focus({workspace = "empty"})` enters the first workspace
-    // with no windows. Resolve that id numerically — an id that does not exist
-    // yet counts as free — so trailing-card activation can still pin the
-    // result to a monitor with workspace.move, which needs a concrete id.
-    function firstEmptyWorkspaceId() {
-        const occupied = ({});
-        for (const id of root.occupiedWorkspaceIds())
-            occupied[id] = true;
-        for (let id = 1; id <= 100; ++id) {
-            if (!occupied[id])
-                return id;
-        }
-        return 0;
     }
 
     function overviewWorkspaceEntriesForMonitor(monitorName, appendTrailing, reservedWorkspaceIds, orderByMru, includeEmptySystemSlots) {
@@ -391,25 +382,21 @@ Singleton {
         const ordered = orderedWindows.slice();
 
         if (shouldAppendTrailing) {
-            // Keep one creation target at the very end: the first free id.
-            // Occupied workspaces and other monitors' trailing slots (the
-            // reserved set) are skipped; ids above every occupied id are only
-            // reached once the strip fills up.
-            const usedIdSet = ({});
-            for (const id of root.occupiedWorkspaceIds())
-                usedIdSet[id] = true;
-            for (const key of Object.keys(reserved)) {
-                const id = Number(key);
-                if (id > 0 && id <= 100)
-                    usedIdSet[id] = true;
+            // The trailing slot is always the strip's LAST card and always a
+            // fresh number above every occupied id. It never recycles a hole:
+            // holes are invisible in the strip and compacted away when the
+            // gallery closes, and a recycled id would re-key the card mid-
+            // animation when drags settle. This keeps card order and identity
+            // stable: filling the slot keeps the card in place, and only the
+            // successor slot (max+1) is new.
+            let highest = 0;
+            for (const id of root.occupiedWorkspaceIds()) {
+                if (id > highest)
+                    highest = id;
             }
-            let trailingId = 0;
-            for (let id = 1; id <= 100; ++id) {
-                if (!usedIdSet[id]) {
-                    trailingId = id;
-                    break;
-                }
-            }
+            let trailingId = highest + 1;
+            while (trailingId <= 100 && reserved[trailingId])
+                trailingId += 1;
             if (trailingId > 0 && trailingId <= 100) {
                 reserved[trailingId] = true;
                 ordered.push({
