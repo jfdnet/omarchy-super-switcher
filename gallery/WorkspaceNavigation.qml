@@ -114,8 +114,11 @@ Singleton {
             ServiceManager.workspace.updateAll();
             GlobalStates.refreshOverviewModel();
             root.pendingDragRefreshes -= 1;
-            if (root.pendingDragRefreshes > 0)
+            if (root.pendingDragRefreshes > 0) {
                 refreshAfterDragTimer.restart();
+            } else {
+                root.autoCompactAfterDrag();
+            }
         }
     }
     function overviewModel() {
@@ -306,6 +309,25 @@ Singleton {
     // compact once so emptied holes below occupied ids are reclaimed (the bar
     // ends up consecutive: dragging both windows off workspace 1 onto fresh
     // slots closes as workspaces 1 and 2, not 2 and 3).
+    // Drags land where dropped; when the settled layout has holes, renumber
+    // immediately (real-time) so workspace numbers always stay consecutive.
+    // The strip model is slot-stable — compaction only pulls windows down ids
+    // the strip already occupies — so this no longer bounces drops: cards keep
+    // their slots and the compaction choreography animates the gap closing.
+    // The flag survives a busy compaction so the next settle retries.
+    function autoCompactAfterDrag() {
+        if (!root.dragMovedWorkspace)
+            return;
+        if (GlobalStates.overviewDraggingFromWorkspace !== -1)
+            return;
+        if (!ServiceManager.workspace.hasWorkspaceGaps()) {
+            root.dragMovedWorkspace = false;
+            return;
+        }
+        if (root.compactWorkspaces())
+            root.dragMovedWorkspace = false;
+    }
+
     function autoCompactAfterGalleryClose() {
         if (!root.dragMovedWorkspace)
             return;

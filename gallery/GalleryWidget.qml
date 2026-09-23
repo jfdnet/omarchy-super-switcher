@@ -427,6 +427,27 @@ Item {
             return;
         }
 
+        // Transient gapped layouts (a middle workspace just emptied) are
+        // renumbered in real time by compaction, whose own choreography
+        // animates the closing. Stay silent here so the diff never stacks a
+        // second layer of motion on top of it.
+        let contiguous = true;
+        let previousOccupiedId = 0;
+        for (let i = 0; i < root.entries.length; ++i) {
+            const entry = root.entries[i];
+            if (entry.isTrailingEmpty)
+                break;
+            if (previousOccupiedId > 0 && entry.id !== previousOccupiedId + 1) {
+                contiguous = false;
+                break;
+            }
+            previousOccupiedId = entry.id;
+        }
+        if (!contiguous) {
+            root.previousTopEntries = root.entries;
+            return;
+        }
+
         const previousOccupied = ({});
         let previousTrailingIndex = -1;
         let previousTrailingId = -1;
