@@ -5,7 +5,7 @@ function removeDuplicateNativeWidget(config) {
     const sections = ["left", "center", "right"];
     const id = entry => typeof entry === "string" ? entry : entry?.id;
     if (!sections.some(section => (layout?.[section] ?? []).some(
-            entry => id(entry) === "io.github.manateelazycat.window-switcher")))
+            entry => id(entry) === "io.github.jfdnet.super-switcher")))
         return false;
 
     let changed = false;
@@ -52,7 +52,7 @@ function configuredOverviewMode(shell) {
         for (const entry of entries) {
             const id = typeof entry === "string" ? entry
                 : (isPlainObject(entry) ? entry.id : "");
-            if (id === "io.github.manateelazycat.window-switcher")
+            if (id === "io.github.jfdnet.super-switcher")
                 return isPlainObject(entry) && entry.sortMode === "legacy"
                     ? "legacy" : "system";
         }

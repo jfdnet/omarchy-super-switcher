@@ -122,7 +122,7 @@ Item {
         commands.push('hl.bind("SUPER + SHIFT + TAB", hl.dsp.global("quickshell:overviewPrev"), { description = "Overview workspace previous" })');
         commands.push('hl.bind("SUPER + SUPER_L", hl.dsp.global("quickshell:overviewCommit"), { release = true, description = "Overview workspace commit" })');
         commands.push('hl.bind("SUPER + SUPER_R", hl.dsp.global("quickshell:overviewCommit"), { release = true, description = "Overview workspace commit" })');
-        commands.push(`_G.manateeWindowSwitcherBindingOwner = "${ownerToken}"`);
+        commands.push(`_G.superSwitcherBindingOwner = "${ownerToken}"`);
         // Native mode does not own Win+number. Never unbind or recreate those
         // keys there; they may be user-defined rather than Omarchy defaults.
         return optimized
@@ -173,7 +173,7 @@ Item {
         root.restoring = true;
         const ownerToken = root.bindingOwner;
         const commands = [
-            `if _G.manateeWindowSwitcherBindingOwner == "${ownerToken}" then _G.manateeWindowSwitcherBindingOwner = nil`,
+            `if _G.superSwitcherBindingOwner == "${ownerToken}" then _G.superSwitcherBindingOwner = nil`,
             'hl.unbind("ALT + TAB")',
             'hl.unbind("ALT + SHIFT + TAB")',
             'hl.unbind("SUPER + SUPER_L")',

@@ -6,7 +6,7 @@ import "."
 
 Panel {
     id: root
-    moduleName: "io.github.manateelazycat.window-switcher"
+    moduleName: "io.github.jfdnet.super-switcher"
     manageIpc: false
 
     property var anchorItem: null

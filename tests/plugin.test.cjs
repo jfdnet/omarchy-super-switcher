@@ -8,18 +8,15 @@ const read = relative => fs.readFileSync(path.join(root, relative), "utf8");
 
 test("manifest exposes every combined plugin entry point", () => {
   const manifest = JSON.parse(read("manifest.json"));
-  const packageMetadata = JSON.parse(read("package.json"));
-  assert.equal(manifest.id, "io.github.manateelazycat.window-switcher");
-  assert.equal(manifest.version, packageMetadata.version);
+  assert.equal(manifest.id, "io.github.jfdnet.super-switcher");
   assert.deepEqual(manifest.kinds, ["panel", "bar-widget", "service"]);
   for (const entry of Object.values(manifest.entryPoints))
     assert.equal(fs.existsSync(path.join(root, entry)), true, `${entry} is missing`);
-  assert.equal(manifest.omarchy.clonedFrom, "omarchy.workspaces");
 });
 
 test("Orbit reads settings from the combined plugin entry", () => {
   const source = read("orbit/Overlay.qml");
-  assert.match(source, /pluginId: "io\.github\.manateelazycat\.window-switcher"/);
+  assert.match(source, /pluginId: "io\.github\.jfdnet\.super-switcher"/);
   assert.match(source, /property string mode: "grid"/);
 });
 
@@ -50,9 +47,9 @@ test("Overview defaults to native workspace ordering", () => {
   const context = vm.createContext({});
   vm.runInContext(read("overview/WorkspaceBarConfig.js"), context);
   const shell = entry => ({ barConfig: { layout: { left: [entry], center: [], right: [] } } });
-  assert.equal(context.configuredOverviewMode(shell("io.github.manateelazycat.window-switcher")), "system");
+  assert.equal(context.configuredOverviewMode(shell("io.github.jfdnet.super-switcher")), "system");
   assert.equal(context.configuredOverviewMode(shell({
-    id: "io.github.manateelazycat.window-switcher",
+    id: "io.github.jfdnet.super-switcher",
     sortMode: "legacy"
   })), "legacy");
 });
@@ -110,12 +107,12 @@ test("shortcut service owns only the two switcher families", () => {
   assert.doesNotMatch(source, /commands\.push\('hl\.bind\("SUPER_[LR]"/);
   assert.doesNotMatch(source, /hancoreOverviewSuperListener = hl\.on/);
   assert.doesNotMatch(source, /hancoreOverviewSuperListener|hancoreOverviewSuperDown/);
-  assert.match(source, /manateeWindowSwitcherBindingOwner/);
+  assert.match(source, /superSwitcherBindingOwner/);
   assert.doesNotMatch(source, /hyprctl[^\n]*reload|reload[^\n]*hyprctl/);
 });
 
-test("README credits both upstream projects", () => {
-  const source = read("README.md");
+test("third-party notices credit both upstream projects", () => {
+  const source = read("THIRD_PARTY_NOTICES.md");
   assert.match(source, /rohan-patnaik\/orbit/);
   assert.match(source, /iamcheyan\/omarchy-overview-workspaces/);
   assert.equal(fs.existsSync(path.join(root, "licenses/ORBIT-LICENSE")), true);

@@ -32,7 +32,7 @@ Singleton {
         // entries Omarchy's own launcher hides. Worth saying so out loud rather
         // than silently diverging from the Super+Space menu.
         onLoadFailed: {
-            console.warn("io.github.manateelazycat.window-switcher: no launcher.hides at "
+            console.warn("io.github.jfdnet.super-switcher: no launcher.hides at "
                 + `${root.omarchyPath}/default/omarchy/launcher.hides`
                 + " -- hidden applications will show in search results");
             root.loadHides("");

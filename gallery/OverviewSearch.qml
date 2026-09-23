@@ -107,7 +107,7 @@ Item {
         // closes without a vendor-specific wrapper binary.
         Quickshell.execDetached([
             "xdg-terminal-exec",
-            "--app-id=io.github.manateelazycat.window-switcher.command",
+            "--app-id=io.github.jfdnet.super-switcher.command",
             "--title=Overview Command",
             "--hold",
             "-e",

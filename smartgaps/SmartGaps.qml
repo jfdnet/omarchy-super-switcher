@@ -127,7 +127,7 @@ Item {
   }
 
   IpcHandler {
-    target: "io.github.manateelazycat.smart-gaps"
+    target: "io.github.jfdnet.super-switcher.smart-gaps"
 
     function status(): string { return root.statusJson() }
   }
