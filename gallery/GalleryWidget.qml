@@ -380,17 +380,20 @@ Item {
     property var previousTopEntries: null
     property var introPlans: ({})
     property var exitingTopCards: []
+    // Tune the strip pacing here: slide/displacement and exit durations.
+    readonly property int topStripIntroDuration: 900
+    readonly property int topStripGhostDuration: 800
 
     Timer {
         id: topGhostCleanupTimer
-        interval: 460
+        interval: root.topStripGhostDuration + 60
         repeat: false
         onTriggered: root.exitingTopCards = []
     }
 
     Timer {
         id: topIntroCleanupTimer
-        interval: 560
+        interval: root.topStripIntroDuration + 60
         repeat: false
         onTriggered: root.introPlans = ({})
     }
@@ -589,14 +592,14 @@ Item {
                     target: topCard
                     property: "introOffset"
                     to: 0
-                    duration: 480
+                    duration: root.topStripIntroDuration
                     easing.type: Easing.OutQuint
                 }
                 NumberAnimation {
                     target: topCard
                     property: "introOpacity"
                     to: 1
-                    duration: 240
+                    duration: Math.round(root.topStripIntroDuration * 0.45)
                     easing.type: Easing.OutCubic
                 }
             }
@@ -749,14 +752,14 @@ Item {
                     target: topGhost
                     property: "y"
                     to: topList.y - root.topCardHeight * 0.85
-                    duration: 420
+                    duration: root.topStripGhostDuration
                     easing.type: Easing.OutQuart
                 }
                 NumberAnimation {
                     target: topGhost
                     property: "opacity"
                     to: 0
-                    duration: 380
+                    duration: Math.round(root.topStripGhostDuration * 0.88)
                     easing.type: Easing.OutQuart
                 }
             }
