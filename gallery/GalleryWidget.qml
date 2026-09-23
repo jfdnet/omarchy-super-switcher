@@ -458,13 +458,11 @@ Item {
         if (WorkspaceNavigation.compactingWorkspaces
                 || GlobalStates.overviewCompactionAnimating
                 || GlobalStates.overviewCompactionSyncing) {
-            console.debug("[GalleryStrip] diff gated (compaction)");
             root.previousTopEntries = null;
             return;
         }
         const previous = root.previousTopEntries;
         if (previous === null) {
-            console.debug("[GalleryStrip] diff armed (first)");
             root.previousTopEntries = root.entries;
             return;
         }
@@ -553,9 +551,6 @@ Item {
             root.introPlans = plans;
             topIntroCleanupTimer.restart();
         }
-        console.debug("[GalleryStrip] diff prev=", previous.map(e => e.id + (e.isTrailingEmpty ? "N" : "")).join(","),
-            "next=", root.entries.map(e => e.id + (e.isTrailingEmpty ? "N" : "")).join(","),
-            "plans=", JSON.stringify(plans), "ghosts=", ghosts.length);
         root.previousTopEntries = root.entries;
     }
 
@@ -582,7 +577,6 @@ Item {
             // overlays: the source card retires with a ghost exit while a
             // temporary card reveals from the right edge onto the empty slot.
             const fromSlot = GlobalStates.stripRevealSourceSlot;
-            console.debug("[GalleryStrip] reveal tick: index=", index, "fromSlot=", fromSlot);
             if (fromSlot >= 0 && fromSlot < index) {
                 root.exitingTopCards = root.exitingTopCards.concat([{
                     id: -1,
@@ -696,8 +690,6 @@ Item {
             property bool introActive: false
             function startIntroPlan() {
                 const plan = root.introPlans[topCard.topKey];
-                console.debug("[GalleryStrip] intro start key=", topCard.topKey,
-                    "active=", topCard.introActive, "hasPlan=", !!plan);
                 if (!plan || topCard.introActive)
                     return;
                 const pauseMs = plan.fade ? root.topStripIntroPause : 0;
