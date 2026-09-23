@@ -380,7 +380,9 @@ Item {
     property var previousTopEntries: null
     property var introPlans: ({})
     property var exitingTopCards: []
-    // Tune the strip pacing here: slide/displacement and exit durations.
+    // Tune the strip pacing here: reveal beat, slide/displacement and exit
+    // durations.
+    readonly property int topStripIntroPause: 450
     readonly property int topStripIntroDuration: 1100
     readonly property int topStripGhostDuration: 900
 
@@ -393,7 +395,7 @@ Item {
 
     Timer {
         id: topIntroCleanupTimer
-        interval: root.topStripIntroDuration + 60
+        interval: root.topStripIntroPause + root.topStripIntroDuration + 80
         repeat: false
         onTriggered: root.introPlans = ({})
     }
@@ -403,9 +405,11 @@ Item {
     }
 
     function topStripEdgeEntryPlan(index) {
+        // Start half-visible at the screen's right edge: the reveal pauses
+        // there briefly before the card glides in.
         return {
-            offset: Math.max(root.topCardWidth + root.cardGap,
-                root.width - root.topCardXForIndex(index)),
+            offset: Math.max(root.topCardWidth * 0.5 + root.cardGap,
+                root.width - root.topCardWidth * 0.5 - root.topCardXForIndex(index)),
             fade: true,
             startAt: Date.now()
         };
@@ -571,10 +575,14 @@ Item {
             border.width: 0
             readonly property var compactionVisual:
                 root.compactionVisualForWorkspace(topCard.modelData.id)
-            // Slide-in/displacement plan. Plans carry a timestamp: the strip
-            // model is reassigned repeatedly while pending drag state settles,
-            // which rebuilds every delegate — recreated cards resume the
-            // animation from the elapsed time instead of popping into place.
+            // Edge-entry choreography: the card first shows up half-visible
+            // at the screen's right edge, holds there for a beat, then glides
+            // in over its neighbours. Plans carry a timestamp: the strip model
+            // is reassigned repeatedly while pending drag state settles, which
+            // rebuilds every delegate — recreated cards resume the motion from
+            // the elapsed time instead of popping into place. Plain
+            // displacements (strip shrank / cards shifted) glide without the
+            // reveal beat.
             readonly property string topKey: `${topCard.modelData.id}:${topCard.modelData.isTrailingEmpty ? 1 : 0}`
             property real introOffset: {
                 const plan = root.introPlans[topCard.topKey];
@@ -588,47 +596,61 @@ Item {
                 const plan = root.introPlans[topCard.topKey];
                 if (!plan)
                     return;
-                const introDuration = root.topStripIntroDuration;
-                const elapsed = Math.min(introDuration, Math.max(0, Date.now() - plan.startAt));
-                if (elapsed >= introDuration) {
+                const pauseMs = plan.fade ? root.topStripIntroPause : 0;
+                const slideMs = root.topStripIntroDuration;
+                const fadeMs = 300;
+                const elapsed = Math.max(0, Date.now() - plan.startAt);
+                if (elapsed >= pauseMs + slideMs) {
                     topCard.introOffset = 0;
                     topCard.introOpacity = 1;
                     return;
                 }
-                // Resume where the curve would be now (OutQuint / OutCubic).
-                const progress = elapsed / introDuration;
-                const eased = 1 - Math.pow(1 - progress, 5);
-                topCard.introOffset = plan.offset * (1 - eased);
-                topCardIntroOffsetAnimation.duration = Math.max(1, introDuration - elapsed);
-                if (topCard.introOffset !== 0)
-                    topCardIntroOffsetAnimation.start();
-                if (plan.fade) {
-                    const fadeDuration = Math.round(introDuration * 0.45);
-                    const fadeElapsed = Math.min(fadeDuration, elapsed);
-                    const fadeProgress = fadeDuration > 0 ? fadeElapsed / fadeDuration : 1;
-                    topCard.introOpacity = 1 - Math.pow(1 - fadeProgress, 3);
-                    topCardIntroOpacityAnimation.duration = Math.max(1, fadeDuration - fadeElapsed);
+                if (elapsed <= pauseMs) {
+                    topCard.introOffset = plan.offset;
+                    topCardIntroPause.duration = Math.max(1, pauseMs - elapsed);
+                    topCardIntroOffsetAnimation.duration = slideMs;
+                } else {
+                    const slideElapsed = elapsed - pauseMs;
+                    const progress = Math.min(1, slideElapsed / slideMs);
+                    const eased = 1 - Math.pow(1 - progress, 5);
+                    topCard.introOffset = plan.offset * (1 - eased);
+                    topCardIntroPause.duration = 0;
+                    topCardIntroOffsetAnimation.duration = Math.max(1, slideMs - slideElapsed);
+                }
+                topCard.introOpacity = 1;
+                if (plan.fade && elapsed < fadeMs) {
+                    topCard.introOpacity = 1 - Math.pow(1 - (elapsed / fadeMs), 3);
+                    topCardIntroOpacityAnimation.duration = Math.max(1, fadeMs - elapsed);
                     topCardIntroOpacityAnimation.start();
                 }
+                topCardIntroSequence.start();
             }
-            NumberAnimation {
-                id: topCardIntroOffsetAnimation
-                target: topCard
-                property: "introOffset"
-                to: 0
-                duration: root.topStripIntroDuration
-                easing.type: Easing.OutQuint
+            SequentialAnimation {
+                id: topCardIntroSequence
+                PauseAnimation {
+                    id: topCardIntroPause
+                    duration: 0
+                }
+                NumberAnimation {
+                    id: topCardIntroOffsetAnimation
+                    target: topCard
+                    property: "introOffset"
+                    to: 0
+                    duration: root.topStripIntroDuration
+                    easing.type: Easing.OutQuint
+                }
             }
             NumberAnimation {
                 id: topCardIntroOpacityAnimation
                 target: topCard
                 property: "introOpacity"
                 to: 1
-                duration: Math.round(root.topStripIntroDuration * 0.45)
+                duration: 300
                 easing.type: Easing.OutCubic
             }
             opacity: topCard.compactionVisual.opacity * topCard.introOpacity
-            z: topCard.compactionVisual.active ? 20 + topCard.index : 0
+            z: (topCard.compactionVisual.active ? 20 + topCard.index : 0)
+                + (topCard.introOffset > 0.5 ? 40 : 0)
             transform: [
                 Translate {
                     x: topCard.introOffset
