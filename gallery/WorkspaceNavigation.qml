@@ -439,6 +439,27 @@ Singleton {
         GlobalStates.overviewPendingWorkspaceMonitorById = pendingMonitors;
         GlobalStates.overviewPendingOccupiedWorkspaces = pendingOccupied;
         GlobalStates.overviewSuppressedEmptyWorkspaceIds = suppressed;
+
+        // Renumbering must never show through the translucent overlay: when a
+        // move would land windows on the workspace visible behind the Gallery,
+        // focus an empty workspace above the renumber range (the successor
+        // empty slot) for the duration of the moves — the screen was already
+        // vacated by the drag, so nothing changes, and every move stays
+        // invisible. The Gallery's selection focus on close restores the
+        // landing spot.
+        let shelterCommand = "";
+        if (GlobalStates.overviewOpen) {
+            const activeWorkspaceId = ServiceManager.workspace.activeWorkspace?.id ?? 0;
+            if (activeWorkspaceId > 0
+                    && plan.moves.some(move => move.targetId === activeWorkspaceId)) {
+                let highestSource = 0;
+                for (const move of plan.moves) {
+                    if (move.sourceId > highestSource)
+                        highestSource = move.sourceId;
+                }
+                shelterCommand = `            hl.dispatch(hl.dsp.focus({ workspace = ${highestSource + 1} }))\n`;
+            }
+        }
         GlobalStates.overviewFocusedWorkspaceId = root.remapWorkspaceId(
             GlobalStates.overviewFocusedWorkspaceId, plan.mapping);
         GlobalStates.overviewCurrentWorkspaceId = root.remapWorkspaceId(
@@ -448,7 +469,7 @@ Singleton {
         GlobalStates.overviewWorkspaceMru = WorkspaceCompact.remapIds(
             GlobalStates.overviewWorkspaceMru, plan.mapping);
 
-        Hyprland.dispatch(`function()\n${commands.map(command => `            ${command}`).join("\n")}\n        end`);
+        Hyprland.dispatch(`function()\n${shelterCommand}${commands.map(command => `            ${command}`).join("\n")}\n        end`);
         GlobalStates.refreshOverviewModel();
         root.pendingDragRefreshes = 6;
         refreshAfterDragTimer.restart();
