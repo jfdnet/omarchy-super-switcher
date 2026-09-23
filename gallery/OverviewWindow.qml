@@ -121,6 +121,13 @@ Item { // Window
     // independently during Overview startup.
     opacity: root.anyPreviewContent || root.showingFreeze || root.captureAttempt >= 8 ? 1 : 0
 
+    // Content arriving (capture landing, freeze showing) fades in instead of
+    // popping, so rebuilds and expose-layout reshuffles read as transitions.
+    Behavior on opacity {
+        enabled: !root.Drag.active
+        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+    }
+
     Behavior on opacity {
         NumberAnimation { duration: 40; easing.type: Easing.OutCubic }
     }

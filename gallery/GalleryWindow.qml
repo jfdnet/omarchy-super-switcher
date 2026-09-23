@@ -210,6 +210,19 @@ OverviewWindow {
                 layoutAlreadyCommitted);
         }
 
+        onDoubleClicked: event => {
+            if (event.button !== Qt.LeftButton || root.movedDuringPress)
+                return;
+            // Top-strip thumbnails: double-click enters the workspace — the
+            // card's own TapHandler only receives taps on the card background.
+            if (!root.closeOnActivate && root.galleryRoot) {
+                root.galleryRoot.activationPending(
+                    { workspace: String(root.sourceWorkspaceId) });
+                root.galleryRoot.closeRequested(false);
+                event.accepted = true;
+            }
+        }
+
         onClicked: event => {
             if (!root.windowData)
                 return;

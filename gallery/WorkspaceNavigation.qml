@@ -317,6 +317,51 @@ Singleton {
     // the strip already occupies — so this no longer bounces drops: cards keep
     // their slots and the compaction choreography animates the gap closing.
     // The flag survives a busy compaction so the next settle retries.
+    // Swap two workspaces' order: every window exchanges its workspace id in
+    // one batch (frozen strip, single dispatch). The occupied id set is
+    // unchanged, so the strip does not rebuild — only each card's window
+    // thumbnails swap contents.
+    function swapWorkspaces(a, b) {
+        const aId = Number(a);
+        const bId = Number(b);
+        if (!Number.isInteger(aId) || !Number.isInteger(bId)
+                || aId < 1 || bId < 1 || aId === bId)
+            return false;
+        GlobalStates.stripTransitionsSuspended = true;
+        try {
+            const addressesA = [];
+            const addressesB = [];
+            for (const win of ServiceManager.workspace.windowList) {
+                const address = ServiceManager.workspace.normalizeAddress(win?.address);
+                if (address.length === 0)
+                    continue;
+                const id = win?.workspace?.id ?? -1;
+                if (id === aId)
+                    addressesA.push(address);
+                else if (id === bId)
+                    addressesB.push(address);
+            }
+            if (addressesA.length === 0 && addressesB.length === 0)
+                return false;
+            const commands = [];
+            for (const address of addressesA) {
+                GlobalStates.setPendingWindowWorkspace(address, bId);
+                commands.push(`hl.dispatch(hl.dsp.window.move({ workspace = ${bId}, follow = false, window = ${root.luaQuoted(`address:${address}`)} }))`);
+            }
+            for (const address of addressesB) {
+                GlobalStates.setPendingWindowWorkspace(address, aId);
+                commands.push(`hl.dispatch(hl.dsp.window.move({ workspace = ${aId}, follow = false, window = ${root.luaQuoted(`address:${address}`)} }))`);
+            }
+            Hyprland.dispatch(`function()\n${commands.map(command => `            ${command}`).join("\n")}\n        end`);
+            GlobalStates.refreshOverviewModel();
+            root.pendingDragRefreshes = 4;
+            refreshAfterDragTimer.restart();
+            return true;
+        } finally {
+            GlobalStates.stripTransitionsSuspended = false;
+        }
+    }
+
     function autoCompactAfterDrag() {
         if (!root.dragMovedWorkspace)
             return;
