@@ -381,8 +381,8 @@ Item {
     property var introPlans: ({})
     property var exitingTopCards: []
     // Tune the strip pacing here: slide/displacement and exit durations.
-    readonly property int topStripIntroDuration: 900
-    readonly property int topStripGhostDuration: 800
+    readonly property int topStripIntroDuration: 1100
+    readonly property int topStripGhostDuration: 900
 
     Timer {
         id: topGhostCleanupTimer
@@ -406,7 +406,8 @@ Item {
         return {
             offset: Math.max(root.topCardWidth + root.cardGap,
                 root.width - root.topCardXForIndex(index)),
-            fade: true
+            fade: true,
+            startAt: Date.now()
         };
     }
 
@@ -450,8 +451,9 @@ Item {
             topGhostCleanupTimer.restart();
         }
 
-        const plans = ({});
-        root.entries.forEach((entry, index) => {
+            const plans = ({});
+            const now = Date.now();
+            root.entries.forEach((entry, index) => {
             const key = `${entry.id}:${entry.isTrailingEmpty ? 1 : 0}`;
             const newX = root.topCardXForIndex(index);
             if (entry.isTrailingEmpty) {
@@ -460,14 +462,14 @@ Item {
                 } else if (previousTrailingIndex >= 0) {
                     const offset = root.topCardXForIndex(previousTrailingIndex) - newX;
                     if (offset !== 0)
-                        plans[key] = { offset, fade: false };
+                        plans[key] = { offset, fade: false, startAt: now };
                 }
                 return;
             }
             if (previousOccupied[entry.id] !== undefined) {
                 const offset = root.topCardXForIndex(previousOccupied[entry.id]) - newX;
                 if (offset !== 0)
-                    plans[key] = { offset, fade: false };
+                    plans[key] = { offset, fade: false, startAt: now };
                 return;
             }
             if (previousTrailingIndex >= 0
@@ -476,7 +478,7 @@ Item {
                 // (or glides) and only gains its window thumbnail.
                 const offset = root.topCardXForIndex(previousTrailingIndex) - newX;
                 if (offset !== 0)
-                    plans[key] = { offset, fade: false };
+                    plans[key] = { offset, fade: false, startAt: now };
                 return;
             }
             plans[key] = root.topStripEdgeEntryPlan(index);
@@ -569,8 +571,10 @@ Item {
             border.width: 0
             readonly property var compactionVisual:
                 root.compactionVisualForWorkspace(topCard.modelData.id)
-            // Slide-in/displacement plan, consumed on first render so
-            // refresh-driven delegate rebuilds never replay the animation.
+            // Slide-in/displacement plan. Plans carry a timestamp: the strip
+            // model is reassigned repeatedly while pending drag state settles,
+            // which rebuilds every delegate — recreated cards resume the
+            // animation from the elapsed time instead of popping into place.
             readonly property string topKey: `${topCard.modelData.id}:${topCard.modelData.isTrailingEmpty ? 1 : 0}`
             property real introOffset: {
                 const plan = root.introPlans[topCard.topKey];
@@ -581,27 +585,47 @@ Item {
                 return plan && plan.fade ? 0 : 1;
             }
             Component.onCompleted: {
-                if (topCard.introOffset !== 0) {
-                    delete root.introPlans[topCard.topKey];
-                    topCardIntroAnimation.start();
+                const plan = root.introPlans[topCard.topKey];
+                if (!plan)
+                    return;
+                const introDuration = root.topStripIntroDuration;
+                const elapsed = Math.min(introDuration, Math.max(0, Date.now() - plan.startAt));
+                if (elapsed >= introDuration) {
+                    topCard.introOffset = 0;
+                    topCard.introOpacity = 1;
+                    return;
+                }
+                // Resume where the curve would be now (OutQuint / OutCubic).
+                const progress = elapsed / introDuration;
+                const eased = 1 - Math.pow(1 - progress, 5);
+                topCard.introOffset = plan.offset * (1 - eased);
+                topCardIntroOffsetAnimation.duration = Math.max(1, introDuration - elapsed);
+                if (topCard.introOffset !== 0)
+                    topCardIntroOffsetAnimation.start();
+                if (plan.fade) {
+                    const fadeDuration = Math.round(introDuration * 0.45);
+                    const fadeElapsed = Math.min(fadeDuration, elapsed);
+                    const fadeProgress = fadeDuration > 0 ? fadeElapsed / fadeDuration : 1;
+                    topCard.introOpacity = 1 - Math.pow(1 - fadeProgress, 3);
+                    topCardIntroOpacityAnimation.duration = Math.max(1, fadeDuration - fadeElapsed);
+                    topCardIntroOpacityAnimation.start();
                 }
             }
-            ParallelAnimation {
-                id: topCardIntroAnimation
-                NumberAnimation {
-                    target: topCard
-                    property: "introOffset"
-                    to: 0
-                    duration: root.topStripIntroDuration
-                    easing.type: Easing.OutQuint
-                }
-                NumberAnimation {
-                    target: topCard
-                    property: "introOpacity"
-                    to: 1
-                    duration: Math.round(root.topStripIntroDuration * 0.45)
-                    easing.type: Easing.OutCubic
-                }
+            NumberAnimation {
+                id: topCardIntroOffsetAnimation
+                target: topCard
+                property: "introOffset"
+                to: 0
+                duration: root.topStripIntroDuration
+                easing.type: Easing.OutQuint
+            }
+            NumberAnimation {
+                id: topCardIntroOpacityAnimation
+                target: topCard
+                property: "introOpacity"
+                to: 1
+                duration: Math.round(root.topStripIntroDuration * 0.45)
+                easing.type: Easing.OutCubic
             }
             opacity: topCard.compactionVisual.opacity * topCard.introOpacity
             z: topCard.compactionVisual.active ? 20 + topCard.index : 0
