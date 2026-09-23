@@ -33,8 +33,7 @@ gesture-driven workspace gallery — tuned for **stock Hyprland**.
   emptied a workspace, ids compact once so the bar stays consecutive
   (dragging both windows off workspace 1 closes as workspaces 1 and 2, never
   2 and 3).
-- Three-finger swipe up/down to open/close, left/right to browse; two-finger
-  pinch (or `Down`) compacts occupied workspaces into consecutive numbers.
+- Three-finger swipe up/down to open/close, left/right to browse.
 - Gestures need one setup step:
   `python3 gallery/scripts/gesture_config.py install`
   (injects a managed block into `~/.config/hypr/input.lua`; `uninstall`
@@ -74,8 +73,7 @@ omarchy plugin remove io.github.jfdnet.super-switcher
 - **Super+A 工作区 Gallery**：顶部缩略图 = 已占用工作区 + 一个「＋」空槽
   （单击预览/双击进入，双击或拖入空槽即新建并进入，槽满后自动追加下一个
   空槽）、大预览里点哪个 app 就全屏切到哪个 app、拖拽窗口跨工作区（落点
-  即时生效，关闭画廊时自动压缩空洞、顶栏编号保持连续）、三指手势开关、
-  捏合压缩工作区编号
+  即时生效，关闭画廊时自动压缩空洞、顶栏编号保持连续）、三指手势开关
   （手势需执行一次 `python3 gallery/scripts/gesture_config.py install`）
 
 ## License
