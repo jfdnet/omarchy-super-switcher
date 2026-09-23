@@ -636,16 +636,24 @@ Singleton {
         const sourceIsEmptyAfterMove = targetWorkspace !== currentWorkspaceId
             && sourceVisibleWindows.length <= 1;
 
-        // Layout no-op: dropping the last window of the HIGHEST occupied
-        // workspace into the empty slot would move it to the fresh id and
-        // real-time renumbering would pull it right back — the round-trip is
-        // visible through the translucent overlay as a screen flash. Skip the
-        // window moves entirely and acknowledge the drop with the empty-slot
-        // reveal animation instead.
+        // Slot of the source card in the CURRENT (pre-drop) layout — the strip
+        // reveal retires it with a ghost exit. Computed before any pending
+        // state mutates the layout.
+        let revealSourceSlot = -1;
         if (targetIsTrailing && sourceIsEmptyAfterMove) {
-            const occupiedIds = ServiceManager.workspace.occupiedWorkspaceIds();
-            const highest = occupiedIds.length > 0 ? occupiedIds[occupiedIds.length - 1] : 0;
+            const occupiedBefore = ServiceManager.workspace.occupiedWorkspaceIds();
+            revealSourceSlot = occupiedBefore.indexOf(currentWorkspaceId);
+
+            // Layout no-op: dropping the last window of the HIGHEST occupied
+            // workspace into the empty slot would move it to the fresh id and
+            // real-time renumbering would pull it right back — the round-trip
+            // is visible through the translucent overlay as a screen flash.
+            // Skip the window moves entirely and tell the story visually
+            // instead (source ghost + empty-slot reveal).
+            const highest = occupiedBefore.length > 0
+                ? occupiedBefore[occupiedBefore.length - 1] : 0;
             if (currentWorkspaceId >= highest) {
+                GlobalStates.stripRevealSourceSlot = revealSourceSlot;
                 GlobalStates.stripRevealTick += 1;
                 return true;
             }
@@ -739,9 +747,12 @@ Singleton {
             if (survivorCommands.length > 0)
                 Hyprland.dispatch(`function()\n${survivorCommands.map(command => `            ${command}`).join("\n")}\n        end`);
             GlobalStates.overviewPendingOccupiedWorkspaces = pendingOccupied;
-            // The strip keeps its structure — acknowledge with the reveal.
-            if (sourceIsEmptyAfterMove)
+            // The strip keeps its structure — tell the story visually instead:
+            // the source card retires with a ghost, the empty slot reveals.
+            if (sourceIsEmptyAfterMove) {
+                GlobalStates.stripRevealSourceSlot = revealSourceSlot;
                 GlobalStates.stripRevealTick += 1;
+            }
         } else {
             if (!root.dispatchPlacedWindowMove(windowAddress, currentWorkspaceId, targetWorkspace, placement))
                 return false;

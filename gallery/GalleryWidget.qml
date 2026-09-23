@@ -413,6 +413,16 @@ Item {
         onTriggered: root.introPlans = ({})
     }
 
+    // Overlay reveal for structure-preserving drops (see onStripRevealTick).
+    property var enteringTopCard: null
+
+    Timer {
+        id: topEnteringCleanupTimer
+        interval: root.topStripIntroPause + root.topStripIntroDuration + 140
+        repeat: false
+        onTriggered: root.enteringTopCard = null
+    }
+
     function topCardXForIndex(index) {
         return topList.x + index * (root.topCardWidth + root.cardGap) - topList.contentX;
     }
@@ -550,8 +560,19 @@ Item {
             const index = root.entries.length - 1;
             if (index < 0 || !root.entries[index].isTrailingEmpty)
                 return;
-            root.introPlans = ({ t: root.topStripEdgeEntryPlan(index) });
-            topIntroCleanupTimer.restart();
+            // The strip structure is unchanged — tell the story with
+            // overlays: the source card retires with a ghost exit while a
+            // temporary card reveals from the right edge onto the empty slot.
+            const fromSlot = GlobalStates.stripRevealSourceSlot;
+            if (fromSlot >= 0 && fromSlot < index) {
+                root.exitingTopCards = root.exitingTopCards.concat([{
+                    id: -1,
+                    x: root.topCardXForIndex(fromSlot)
+                }]);
+                topGhostCleanupTimer.restart();
+            }
+            root.enteringTopCard = ({ index: index, startAt: Date.now() });
+            topEnteringCleanupTimer.restart();
         }
         function onGallerySwipeUpdated(deltaX, timestamp) {
             root.applySwipeDelta(deltaX, timestamp);
@@ -904,6 +925,107 @@ Item {
                     easing.type: Easing.OutQuart
                 }
             }
+        }
+    }
+
+    // Entering overlay for the empty-slot reveal: a temporary card copies
+    // the trailing slot's look, appears half-visible at the screen's right
+    // edge, holds for a beat, and glides onto the real (unchanged) card —
+    // the strip itself never blinks, rebuilds, or moves.
+    Rectangle {
+        id: topEntering
+        visible: false
+        y: topList.y
+        width: root.topCardWidth
+        height: root.topCardHeight
+        radius: 10
+        clip: true
+        z: 600
+        color: Appearance.colors.colSurfaceContainerLow
+        border.width: 0
+        property real introOffset: 0
+        property real introOpacity: 0
+        opacity: topEntering.introOpacity
+        transform: Translate { x: topEntering.introOffset }
+
+        Image {
+            anchors.fill: parent
+            source: root.wallpaperUrl
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: false
+            cache: true
+            opacity: 0.55
+        }
+
+        Rectangle {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 6
+            width: topEnteringBadgeLabel.implicitWidth + 12
+            height: topEnteringBadgeLabel.implicitHeight + 5
+            radius: height / 2
+            color: ColorUtils.transparentize(TuiStyle.bg, 0.2)
+            border.width: 1
+            border.color: ColorUtils.transparentize(TuiStyle.accent, 0.35)
+
+            Text {
+                id: topEnteringBadgeLabel
+                anchors.centerIn: parent
+                text: "N"
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                font.weight: Font.DemiBold
+                color: TuiStyle.accent
+            }
+        }
+
+        function startEntering() {
+            const plan = root.enteringTopCard;
+            if (!plan)
+                return;
+            const x = root.topCardXForIndex(plan.index);
+            topEntering.x = x;
+            topEntering.introOffset = Math.max(root.topCardWidth * 0.5 + root.cardGap,
+                root.width - root.topCardWidth * 0.5 - x);
+            topEntering.introOpacity = 0;
+            topEntering.visible = true;
+            topEnteringPause.duration = root.topStripIntroPause;
+            topEnteringOffsetAnimation.duration = root.topStripIntroDuration;
+            topEnteringSequence.start();
+        }
+
+        Connections {
+            target: root
+            function onEnteringTopCardChanged() {
+                if (root.enteringTopCard)
+                    topEntering.startEntering();
+                else
+                    topEntering.visible = false;
+            }
+        }
+
+        SequentialAnimation {
+            id: topEnteringSequence
+            PauseAnimation {
+                id: topEnteringPause
+                duration: 0
+            }
+            NumberAnimation {
+                id: topEnteringOffsetAnimation
+                target: topEntering
+                property: "introOffset"
+                to: 0
+                easing.type: Easing.OutQuint
+            }
+        }
+
+        NumberAnimation {
+            id: topEnteringOpacityAnimation
+            target: topEntering
+            property: "introOpacity"
+            to: 1
+            duration: 300
+            easing.type: Easing.OutCubic
+            running: topEntering.visible
         }
     }
 

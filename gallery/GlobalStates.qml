@@ -62,6 +62,9 @@ Singleton {
     // Bumped when a drop into the empty slot was a layout no-op: the strip
     // acknowledges it with the reveal animation without moving anything.
     property int stripRevealTick: 0
+    // Slot index of the drop's source card (old layout) for the ghost exit,
+    // -1 when the reveal has no source to retire.
+    property int stripRevealSourceSlot: -1
     property bool regionSelectorOpen: false
     property bool screenshotActive: false
     property bool screenLocked: false
