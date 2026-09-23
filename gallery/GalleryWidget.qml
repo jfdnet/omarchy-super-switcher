@@ -26,15 +26,28 @@ Item {
     readonly property url wallpaperUrl: Wallpaper.readyUrl !== ""
         ? Wallpaper.readyUrl : Wallpaper.requestedUrl
     readonly property var entries: {
+        // Re-evaluates on every model tick, but only swaps the array when the
+        // content actually changed: identical layouts keep the same reference,
+        // so the ListView, its delegates and their thumbnail captures never
+        // rebuild just because a serial bumped — and renumbering that re-keys
+        // ids in place does not flash slot-stable layouts.
         const revision = root.modelRevision;
         void revision;
         const name = root.monitor?.name ?? "";
         const scoped = ServiceManager.workspace.overviewWorkspaceEntriesForMonitor(
             name, true, {}, true, true) ?? [];
-        return scoped.length > 0
+        const next = scoped.length > 0
             ? scoped
             : (ServiceManager.workspace.overviewWorkspaceEntries ?? []);
+        const key = JSON.stringify(next);
+        if (key !== root.stableEntriesKey) {
+            root.stableEntriesKey = key;
+            root.stableEntries = next;
+        }
+        return root.stableEntries;
     }
+    property var stableEntries: []
+    property string stableEntriesKey: ""
     readonly property var entryIds: root.entries.map(entry => entry.id)
     readonly property int selectedWorkspaceId: GlobalStates.overviewFocusedWorkspaceId > 0
         ? GlobalStates.overviewFocusedWorkspaceId
@@ -734,9 +747,13 @@ Item {
                 Text {
                     id: topCardBadgeLabel
                     anchors.centerIn: parent
+                    // The badge is the card's SLOT number — with real-time
+                    // renumbering it matches the workspace id in settled
+                    // layouts, and it never flickers when compaction re-keys
+                    // ids in place.
                     text: topCard.modelData.isTrailingEmpty
                         ? "N"
-                        : String(topCard.modelData.id)
+                        : String(topCard.index + 1)
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     font.weight: Font.DemiBold
                     color: topCard.modelData.isTrailingEmpty

@@ -615,20 +615,6 @@ Singleton {
         const sourceIsEmptyAfterMove = targetWorkspace !== currentWorkspaceId
             && sourceVisibleWindows.length <= 1;
 
-        // Dropping the last window of the HIGHEST occupied workspace into the
-        // empty slot cannot change the layout: real-time renumbering would
-        // pull the window right back to where it started. Skip the whole
-        // round-trip (move, pending churn, compaction, thumbnail re-grabs) —
-        // the model is already in its settled state.
-        if (targetIsTrailing && sourceIsEmptyAfterMove) {
-            const occupiedIds = ServiceManager.workspace.occupiedWorkspaceIds();
-            const highest = occupiedIds.length > 0 ? occupiedIds[occupiedIds.length - 1] : 0;
-            if (currentWorkspaceId >= highest) {
-                GlobalStates.refreshOverviewModel();
-                return true;
-            }
-        }
-
         // IDs of trailing cards may repeat per monitor. The caller resolves the
         // owning monitor from the rendered card before reaching this function.
         const targetMonitorName = String(targetMonitorHint ?? "");
