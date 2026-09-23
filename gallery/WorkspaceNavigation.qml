@@ -400,14 +400,12 @@ Singleton {
             return false;
         }
 
-        // Hide preview contents while their backing workspaces change. The card
-        // shells snap into their final slots under the fade, avoiding a reverse
-        // slide after the compositor reports the new workspace ids. (Animated
-        // mode only — silent renumbers skip the overlay entirely.)
-        if (root.compactionAnimated) {
-            GlobalStates.overviewCompactionSyncing = true;
-            GlobalStates.overviewCompactionAnimating = false;
-        }
+        // Hide preview contents while their backing workspaces change (the
+        // re-grab would read as a flash). Animated mode additionally ran the
+        // choreography timeline and handoff grab; silent renumbers keep only
+        // this mask plus the short reveal window.
+        GlobalStates.overviewCompactionSyncing = true;
+        GlobalStates.overviewCompactionAnimating = false;
 
         const pendingWindows = Object.assign({},
             GlobalStates.overviewPendingWindowWorkspaceByAddress ?? {});
@@ -454,10 +452,7 @@ Singleton {
         GlobalStates.refreshOverviewModel();
         root.pendingDragRefreshes = 6;
         refreshAfterDragTimer.restart();
-        if (root.compactionAnimated)
-            compactionRevealTimer.restart();
-        else
-            root.finishWorkspaceCompaction();
+        compactionRevealTimer.restart();
         return true;
     }
 
@@ -619,6 +614,20 @@ Singleton {
             .filter(win => win.mapped && !win.hidden);
         const sourceIsEmptyAfterMove = targetWorkspace !== currentWorkspaceId
             && sourceVisibleWindows.length <= 1;
+
+        // Dropping the last window of the HIGHEST occupied workspace into the
+        // empty slot cannot change the layout: real-time renumbering would
+        // pull the window right back to where it started. Skip the whole
+        // round-trip (move, pending churn, compaction, thumbnail re-grabs) —
+        // the model is already in its settled state.
+        if (targetIsTrailing && sourceIsEmptyAfterMove) {
+            const occupiedIds = ServiceManager.workspace.occupiedWorkspaceIds();
+            const highest = occupiedIds.length > 0 ? occupiedIds[occupiedIds.length - 1] : 0;
+            if (currentWorkspaceId >= highest) {
+                GlobalStates.refreshOverviewModel();
+                return true;
+            }
+        }
 
         // IDs of trailing cards may repeat per monitor. The caller resolves the
         // owning monitor from the rendered card before reaching this function.
