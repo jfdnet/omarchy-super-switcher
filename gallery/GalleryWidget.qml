@@ -542,11 +542,15 @@ Item {
             border.width: 0
             readonly property var compactionVisual:
                 root.compactionVisualForWorkspace(topCard.modelData.id)
-            // Cards appearing in the strip slide in from the right once; the
-            // key is consumed on first render so refresh-driven delegate
-            // rebuilds never replay the animation.
+            // Cards appearing in the strip slide in from the right edge of
+            // the screen (a long, obvious travel) once; the key is consumed on
+            // first render so refresh-driven delegate rebuilds never replay
+            // the animation.
             property real introOffset: root.introIds[topCard.modelData.id] === true
-                ? root.topCardWidth + root.cardGap
+                ? Math.max(root.topCardWidth + root.cardGap,
+                    root.width - (topList.x
+                        + topCard.index * (root.topCardWidth + root.cardGap)
+                        - topList.contentX))
                 : 0
             property real introOpacity: topCard.introOffset > 0 ? 0 : 1
             Component.onCompleted: {
@@ -561,14 +565,14 @@ Item {
                     target: topCard
                     property: "introOffset"
                     to: 0
-                    duration: 260
+                    duration: 320
                     easing.type: Easing.OutCubic
                 }
                 NumberAnimation {
                     target: topCard
                     property: "introOpacity"
                     to: 1
-                    duration: 260
+                    duration: 200
                     easing.type: Easing.OutCubic
                 }
             }
