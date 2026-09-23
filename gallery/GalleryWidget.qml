@@ -359,11 +359,106 @@ Item {
     }
 
     onEntriesChanged: {
+        root.updateTopStripTransitions();
         if (!root.entries.some(entry => entry.id === root.selectedWorkspaceId)) {
             const fallback = root.entries.find(entry => !entry.isTrailingEmpty) ?? root.entries[0];
             if (fallback)
                 root.selectWorkspace(fallback.id);
         }
+    }
+
+    // ---- Top-strip transitions ------------------------------------------------
+    // The strip model is a plain array, so reassignments rebuild every delegate
+    // without ListView add/remove transitions. Diff entries by id instead:
+    // emptied cards leave as upward-sliding ghosts, newly appearing cards
+    // (freshly filled trailing slot's successor, a reclaimed empty id) slide in
+    // from the right.
+    property var previousTopEntries: null
+    property var introIds: ({})
+    property var exitingTopCards: []
+
+    Timer {
+        id: topGhostCleanupTimer
+        interval: 300
+        repeat: false
+        onTriggered: root.exitingTopCards = []
+    }
+
+    Timer {
+        id: topIntroCleanupTimer
+        interval: 340
+        repeat: false
+        onTriggered: root.introIds = ({})
+    }
+
+    function topCardXForIndex(index) {
+        return topList.x + index * (root.topCardWidth + root.cardGap) - topList.contentX;
+    }
+
+    function updateTopStripTransitions() {
+        // Compaction runs its own card choreography; re-arm silently around it.
+        if (GlobalStates.overviewCompactionAnimating || GlobalStates.overviewCompactionSyncing) {
+            root.previousTopEntries = null;
+            return;
+        }
+        const previous = root.previousTopEntries;
+        if (previous === null) {
+            root.previousTopEntries = root.entries;
+            return;
+        }
+
+        const previousOccupied = ({});
+        let previousTrailing = -1;
+        previous.forEach((entry, index) => {
+            if (entry.isTrailingEmpty)
+                previousTrailing = entry.id;
+            else
+                previousOccupied[entry.id] = index;
+        });
+        const nextOccupied = ({});
+        let nextTrailing = -1;
+        root.entries.forEach((entry, index) => {
+            if (entry.isTrailingEmpty)
+                nextTrailing = entry.id;
+            else
+                nextOccupied[entry.id] = index;
+        });
+
+        const ghosts = [];
+        for (const idKey of Object.keys(previousOccupied)) {
+            if (nextOccupied[idKey] === undefined)
+                ghosts.push({
+                    id: Number(idKey),
+                    x: root.topCardXForIndex(previousOccupied[idKey]),
+                    isTrailing: false
+                });
+        }
+        // The old trailing slot only leaves a ghost when it was not filled in
+        // place (filled slots keep their card and thumbnail).
+        if (previousTrailing > 0 && previousTrailing !== nextTrailing
+                && nextOccupied[previousTrailing] === undefined)
+            ghosts.push({
+                id: previousTrailing,
+                x: root.topCardXForIndex(previous.length - 1),
+                isTrailing: true
+            });
+        if (ghosts.length > 0) {
+            root.exitingTopCards = root.exitingTopCards.concat(ghosts);
+            topGhostCleanupTimer.restart();
+        }
+
+        const intros = ({});
+        if (nextTrailing > 0 && nextTrailing !== previousTrailing)
+            intros[nextTrailing] = true;
+        for (const idKey of Object.keys(nextOccupied)) {
+            if (previousOccupied[idKey] === undefined && Number(idKey) !== previousTrailing)
+                intros[idKey] = true;
+        }
+        if (Object.keys(intros).length > 0) {
+            root.introIds = intros;
+            topIntroCleanupTimer.restart();
+        }
+        root.previousTopEntries = root.entries;
     }
 
     Connections {
@@ -447,9 +542,42 @@ Item {
             border.width: 0
             readonly property var compactionVisual:
                 root.compactionVisualForWorkspace(topCard.modelData.id)
-            opacity: topCard.compactionVisual.opacity
+            // Cards appearing in the strip slide in from the right once; the
+            // key is consumed on first render so refresh-driven delegate
+            // rebuilds never replay the animation.
+            property real introOffset: root.introIds[topCard.modelData.id] === true
+                ? root.topCardWidth + root.cardGap
+                : 0
+            property real introOpacity: topCard.introOffset > 0 ? 0 : 1
+            Component.onCompleted: {
+                if (topCard.introOffset > 0) {
+                    delete root.introIds[topCard.modelData.id];
+                    topCardIntroAnimation.start();
+                }
+            }
+            ParallelAnimation {
+                id: topCardIntroAnimation
+                NumberAnimation {
+                    target: topCard
+                    property: "introOffset"
+                    to: 0
+                    duration: 260
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    target: topCard
+                    property: "introOpacity"
+                    to: 1
+                    duration: 260
+                    easing.type: Easing.OutCubic
+                }
+            }
+            opacity: topCard.compactionVisual.opacity * topCard.introOpacity
             z: topCard.compactionVisual.active ? 20 + topCard.index : 0
             transform: [
+                Translate {
+                    x: topCard.introOffset
+                },
                 Translate {
                     x: topCard.compactionVisual.x
                     y: topCard.compactionVisual.y
@@ -554,6 +682,54 @@ Item {
                 function onActiveChanged() {
                     if (CrossMonitorDrag.active)
                         root.registerDropTarget(topCard, topCard.modelData);
+                }
+            }
+        }
+    }
+
+    // Ghosts of removed strip cards: they replay the card's look at its last
+    // position and slide up out of the row (the compaction choreography owns
+    // visuals during compaction, so these only cover in-session removals).
+    Repeater {
+        model: root.exitingTopCards
+        delegate: Rectangle {
+            id: topGhost
+            required property var modelData
+            x: topGhost.modelData.x
+            y: topList.y
+            width: root.topCardWidth
+            height: root.topCardHeight
+            radius: 10
+            clip: true
+            z: 500
+            color: Appearance.colors.colSurfaceContainerLow
+            border.width: 0
+            opacity: 1
+
+            Image {
+                anchors.fill: parent
+                source: root.wallpaperUrl
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: false
+                cache: true
+                opacity: topGhost.modelData.isTrailing ? 0.55 : 0.82
+            }
+
+            ParallelAnimation {
+                running: true
+                NumberAnimation {
+                    target: topGhost
+                    property: "y"
+                    to: topList.y - root.topCardHeight * 0.75
+                    duration: 240
+                    easing.type: Easing.InCubic
+                }
+                NumberAnimation {
+                    target: topGhost
+                    property: "opacity"
+                    to: 0
+                    duration: 240
+                    easing.type: Easing.InCubic
                 }
             }
         }
