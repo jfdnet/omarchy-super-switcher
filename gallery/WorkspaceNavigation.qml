@@ -400,6 +400,10 @@ Singleton {
             return false;
         }
 
+        // The pending bookkeeping below mutates statement by statement; keep
+        // the strip frozen on the pre-compaction layout until the batch lands.
+        GlobalStates.stripTransitionsSuspended = true;
+        try {
         // Hide preview contents while their backing workspaces change (the
         // re-grab would read as a flash). Animated mode additionally ran the
         // choreography timeline and handoff grab; silent renumbers keep only
@@ -475,6 +479,9 @@ Singleton {
         refreshAfterDragTimer.restart();
         compactionRevealTimer.restart();
         return true;
+        } finally {
+            GlobalStates.stripTransitionsSuspended = false;
+        }
     }
 
     function preparePendingWorkspaceCompaction() {
@@ -631,6 +638,11 @@ Singleton {
             return true;
         }
 
+        // Every pending mutation below re-evaluates the strip model; freeze
+        // rendering and diffs until the whole batch (move + renumber + pending
+        // bookkeeping) completes, so intermediate layouts are never shown.
+        GlobalStates.stripTransitionsSuspended = true;
+        try {
         const sourceVisibleWindows = ServiceManager.workspace.hyprlandClientsForWorkspace(currentWorkspaceId)
             .filter(win => win.mapped && !win.hidden);
         const sourceIsEmptyAfterMove = targetWorkspace !== currentWorkspaceId
@@ -774,6 +786,9 @@ Singleton {
         root.dragMovedWorkspace = true;
         refreshAfterDragTimer.restart();
         return true;
+        } finally {
+            GlobalStates.stripTransitionsSuspended = false;
+        }
     }
 
     function focusWindow(windowData) {

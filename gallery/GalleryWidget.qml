@@ -27,10 +27,15 @@ Item {
         ? Wallpaper.readyUrl : Wallpaper.requestedUrl
     readonly property var entries: {
         // Re-evaluates on every model tick, but only swaps the array when the
-        // content actually changed: identical layouts keep the same reference,
-        // so the ListView, its delegates and their thumbnail captures never
-        // rebuild just because a serial bumped — and renumbering that re-keys
-        // ids in place does not flash slot-stable layouts.
+        // VISUAL structure actually changed (ids, order, trailing slot) —
+        // identical layouts keep the same reference, so the ListView, its
+        // delegates and their thumbnail captures never rebuild just because a
+        // serial bumped or pending flags flipped. While a drag/compaction
+        // batch mutates pending state statement by statement, rendering stays
+        // frozen on the current layout; the single post-batch recompute then
+        // diffs pre-drop vs final directly.
+        if (GlobalStates.stripTransitionsSuspended)
+            return root.stableEntries;
         const revision = root.modelRevision;
         void revision;
         const name = root.monitor?.name ?? "";
@@ -39,7 +44,11 @@ Item {
         const next = scoped.length > 0
             ? scoped
             : (ServiceManager.workspace.overviewWorkspaceEntries ?? []);
-        const key = JSON.stringify(next);
+        const key = JSON.stringify(next.map(entry => ({
+            id: entry.id,
+            trailing: entry.isTrailingEmpty === true,
+            monitor: entry.monitorName ?? ""
+        })));
         if (key !== root.stableEntriesKey) {
             root.stableEntriesKey = key;
             root.stableEntries = next;
@@ -439,17 +448,23 @@ Item {
     }
 
     function updateTopStripTransitions() {
+        // A batch is mutating pending state — keep the pre-batch layout as the
+        // diff baseline and issue nothing until it completes.
+        if (GlobalStates.stripTransitionsSuspended)
+            return;
         // Compaction (animated choreography or silent renumber) re-keys ids in
         // place; re-arm silently while it runs so the diff never stacks motion
         // on top of it. In-flight slot-keyed plans survive the re-keys.
         if (WorkspaceNavigation.compactingWorkspaces
                 || GlobalStates.overviewCompactionAnimating
                 || GlobalStates.overviewCompactionSyncing) {
+            console.debug("[GalleryStrip] diff gated (compaction)");
             root.previousTopEntries = null;
             return;
         }
         const previous = root.previousTopEntries;
         if (previous === null) {
+            console.debug("[GalleryStrip] diff armed (first)");
             root.previousTopEntries = root.entries;
             return;
         }
@@ -538,6 +553,9 @@ Item {
             root.introPlans = plans;
             topIntroCleanupTimer.restart();
         }
+        console.debug("[GalleryStrip] diff prev=", previous.map(e => e.id + (e.isTrailingEmpty ? "N" : "")).join(","),
+            "next=", root.entries.map(e => e.id + (e.isTrailingEmpty ? "N" : "")).join(","),
+            "plans=", JSON.stringify(plans), "ghosts=", ghosts.length);
         root.previousTopEntries = root.entries;
     }
 
@@ -564,6 +582,7 @@ Item {
             // overlays: the source card retires with a ghost exit while a
             // temporary card reveals from the right edge onto the empty slot.
             const fromSlot = GlobalStates.stripRevealSourceSlot;
+            console.debug("[GalleryStrip] reveal tick: index=", index, "fromSlot=", fromSlot);
             if (fromSlot >= 0 && fromSlot < index) {
                 root.exitingTopCards = root.exitingTopCards.concat([{
                     id: -1,
@@ -664,6 +683,8 @@ Item {
             property bool introActive: false
             function startIntroPlan() {
                 const plan = root.introPlans[topCard.topKey];
+                console.debug("[GalleryStrip] intro start key=", topCard.topKey,
+                    "active=", topCard.introActive, "hasPlan=", !!plan);
                 if (!plan || topCard.introActive)
                     return;
                 const pauseMs = plan.fade ? root.topStripIntroPause : 0;
@@ -730,6 +751,7 @@ Item {
                 easing.type: Easing.OutCubic
             }
             opacity: topCard.compactionVisual.opacity * topCard.introOpacity
+                * (root.enteringTopCard !== null && topCard.modelData.isTrailingEmpty ? 0 : 1)
             z: (topCard.compactionVisual.active ? 20 + topCard.index : 0)
                 + (topCard.introOffset > 0.5 ? 40 : 0)
             transform: [

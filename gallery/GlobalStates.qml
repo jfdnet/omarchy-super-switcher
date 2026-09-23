@@ -65,6 +65,11 @@ Singleton {
     // Slot index of the drop's source card (old layout) for the ghost exit,
     // -1 when the reveal has no source to retire.
     property int stripRevealSourceSlot: -1
+    // True while commitWindowDrag / compaction commit mutate pending state
+    // statement by statement — every mutation re-evaluates the strip model, so
+    // freezing rendering and diffs until the batch completes is the only way
+    // to keep intermediate layouts from being shown and animated.
+    property bool stripTransitionsSuspended: false
     property bool regionSelectorOpen: false
     property bool screenshotActive: false
     property bool screenLocked: false
