@@ -429,11 +429,14 @@ Item {
 
         const previousOccupied = ({});
         let previousTrailingIndex = -1;
+        let previousTrailingId = -1;
         previous.forEach((entry, index) => {
-            if (entry.isTrailingEmpty)
+            if (entry.isTrailingEmpty) {
                 previousTrailingIndex = index;
-            else
+                previousTrailingId = entry.id;
+            } else {
                 previousOccupied[entry.id] = index;
+            }
         });
         const nextOccupied = ({});
         root.entries.forEach((entry, index) => {
@@ -441,58 +444,69 @@ Item {
                 nextOccupied[entry.id] = index;
         });
 
-        // Net-length rules keep the choreography unambiguous even when several
-        // things change in one action:
-        //  - strip grew (a drop filled the empty slot): only the successor
-        //    empty slot enters from the right edge with its reveal beat —
-        //    every occupied card, including the one just filled, keeps its
-        //    position;
-        //  - strip shrank (a workspace emptied): the removed cards leave as
-        //    upward-sliding ghosts and the survivors glide left;
-        //  - length unchanged (a workspace emptied and another was filled by
-        //    the same action): slots keep their cards — ids may re-key but
-        //    nothing moves, so no ghosts and no entries.
-        const plans = ({});
-        if (root.entries.length > previous.length) {
-            const trailingEntry = root.entries[root.entries.length - 1];
-            if (trailingEntry?.isTrailingEmpty)
-                plans[`${trailingEntry.id}:1`] =
-                    root.topStripEdgeEntryPlan(root.entries.length - 1);
-        } else if (root.entries.length < previous.length) {
-            const ghosts = [];
-            for (const idKey of Object.keys(previousOccupied)) {
-                if (nextOccupied[idKey] === undefined)
-                    ghosts.push({
-                        id: Number(idKey),
-                        x: root.topCardXForIndex(previousOccupied[idKey])
-                    });
-            }
-            if (ghosts.length > 0) {
-                root.exitingTopCards = root.exitingTopCards.concat(ghosts);
-                topGhostCleanupTimer.restart();
-            }
-            const now = Date.now();
-            root.entries.forEach((entry, index) => {
-                const newX = root.topCardXForIndex(index);
-                let oldIndex = -1;
-                if (entry.isTrailingEmpty) {
-                    oldIndex = previousTrailingIndex;
-                } else if (previousOccupied[entry.id] !== undefined) {
-                    oldIndex = previousOccupied[entry.id];
-                } else if (previousTrailingIndex >= 0
-                        && previous[previousTrailingIndex]?.id === entry.id) {
-                    // The empty slot was filled by the same action that emptied
-                    // another workspace — glide from where the slot card was.
-                    oldIndex = previousTrailingIndex;
-                }
-                if (oldIndex >= 0) {
-                    const offset = root.topCardXForIndex(oldIndex) - newX;
-                    if (offset !== 0)
-                        plans[`${entry.id}:${entry.isTrailingEmpty ? 1 : 0}`] =
-                            { offset, fade: false, startAt: now };
-                }
+        // Transition rules:
+        //  - A new empty slot is BORN when the old one got filled (its id is
+        //    now occupied — even if the source workspace emptied in the same
+        //    action, keeping the strip length unchanged) or when the strip
+        //    otherwise grew: it reveals from the right edge with its beat.
+        //  - Otherwise the empty slot continues and only glides when the
+        //    strip shrinks under it.
+        //  - Occupied cards glide from their old slot; a card filling the old
+        //    empty-slot position, or continuing in the slot of the workspace
+        //    its window came from, keeps its position (no ghost, no entry).
+        //  - Removed cards whose slot nobody inherits leave as ghosts.
+        const fillHappened = previousTrailingId > 0
+            && nextOccupied[previousTrailingId] !== undefined;
+        const grew = root.entries.length > previous.length;
+
+        const ghosts = [];
+        for (const idKey of Object.keys(previousOccupied)) {
+            if (nextOccupied[idKey] !== undefined)
+                continue;
+            const oldIndex = previousOccupied[idKey];
+            const replacement = root.entries[oldIndex];
+            if (replacement && !replacement.isTrailingEmpty
+                    && replacement.id !== Number(idKey))
+                continue;   // the mover's card continues in this slot
+            ghosts.push({
+                id: Number(idKey),
+                x: root.topCardXForIndex(oldIndex)
             });
         }
+        if (ghosts.length > 0) {
+            root.exitingTopCards = root.exitingTopCards.concat(ghosts);
+            topGhostCleanupTimer.restart();
+        }
+
+        const plans = ({});
+        const now = Date.now();
+        root.entries.forEach((entry, index) => {
+            const key = `${entry.id}:${entry.isTrailingEmpty ? 1 : 0}`;
+            const newX = root.topCardXForIndex(index);
+            if (entry.isTrailingEmpty) {
+                if (fillHappened || grew || previousTrailingIndex < 0) {
+                    plans[key] = root.topStripEdgeEntryPlan(index);
+                } else {
+                    const offset = root.topCardXForIndex(previousTrailingIndex) - newX;
+                    if (offset !== 0)
+                        plans[key] = { offset, fade: false, startAt: now };
+                }
+                return;
+            }
+            if (previousOccupied[entry.id] !== undefined) {
+                const offset = root.topCardXForIndex(previousOccupied[entry.id]) - newX;
+                if (offset !== 0)
+                    plans[key] = { offset, fade: false, startAt: now };
+                return;
+            }
+            if (previousTrailingIndex >= 0
+                    && previous[previousTrailingIndex]?.id === entry.id)
+                return;   // this card just filled the empty slot — keep its place
+            const previousAtSlot = previous[index];
+            if (previousAtSlot && nextOccupied[previousAtSlot.id] === undefined)
+                return;   // slot continuity — the emptied workspace's card lives on here
+            plans[key] = root.topStripEdgeEntryPlan(index);
+        });
         if (Object.keys(plans).length > 0) {
             root.introPlans = plans;
             topIntroCleanupTimer.restart();
