@@ -376,7 +376,10 @@ Item {
     const nextWindows = root.snapshotCurrentWindows(clients)
     root.windows = nextWindows
     const nextEntries = root.mode === "icons" ? Logic.applicationEntries(nextWindows) : nextWindows
-    if (nextEntries.length < 2)
+    // A single entry still opens: alt-tab must give feedback even when only
+    // one app/window remains. Cycling wraps to the same entry; committing
+    // focuses it (self-target is a no-op per needsHandoffCover).
+    if (nextEntries.length === 0)
       return
     const initialIndex = Logic.initialSelection(nextEntries, root.pendingDirection)
     root.selectedIndex = Logic.wrapIndex(initialIndex + root.queuedSteps, nextEntries.length)
@@ -1396,7 +1399,8 @@ Item {
       return
     }
     const remainingEntries = root.mode === "icons" ? Logic.applicationEntries(root.windows) : root.windows
-    if (remainingEntries.length < 2) {
+    // Keep the overlay when exactly one entry remains; only zero closes it.
+    if (remainingEntries.length === 0) {
       root.cancel()
       return
     }
