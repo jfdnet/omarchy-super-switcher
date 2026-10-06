@@ -9,6 +9,7 @@ Item {
   // Injected by omarchy-shell.
   property var shell: null
 
+  // ── Smart Gaps: 单平铺窗口工作区自动去边距/边框 ─────────────────
   property bool applied: false
   property bool applyPending: false
   property bool unloading: false
@@ -17,6 +18,13 @@ Item {
   readonly property string screensaverClass: "org.omarchy.screensaver"
   readonly property string enableRuleCode: 'local selector = "w[tv1]s[false]"; if _G.omarchy_smart_gaps_rule and _G.omarchy_smart_gaps_rule_selector ~= selector then _G.omarchy_smart_gaps_rule:set_enabled(false); _G.omarchy_smart_gaps_rule = nil end; if _G.omarchy_smart_gaps_rule then _G.omarchy_smart_gaps_rule:set_enabled(true) else _G.omarchy_smart_gaps_rule = hl.workspace_rule({ workspace = selector, gaps_out = 0, gaps_in = 0, no_border = true }) end; _G.omarchy_smart_gaps_rule_selector = selector'
   readonly property string disableRuleCode: 'if _G.omarchy_smart_gaps_rule then _G.omarchy_smart_gaps_rule:set_enabled(false) end'
+
+  // ── Rounded Corners: 通过 looknfeel.lua 配置实现 ────────────────
+  // 全局圆角写入 ~/.config/hypr/looknfeel.lua（omarchy Lua 配置的标准用户覆盖点）
+  // 运行时 hyprctl keyword 被 Lua 解析器拦截, 只能走配置文件 + reload 路径
+  readonly property string configFile: Quickshell.env("HOME") + "/.config/hypr/looknfeel.lua"
+  readonly property string roundingBlock: "\n-- Arrangements plugin: 全局窗体圆角\nhl.config({\n  decoration = {\n    rounding = 8,\n  },\n})\n"
+  readonly property string roundingMarker: "Arrangements plugin"
 
   function applyRule() {
     if (root.unloading)
@@ -30,6 +38,11 @@ Item {
     root.applyPending = false
     applyProcess.command = ["hyprctl", "eval", root.enableRuleCode]
     applyProcess.running = true
+  }
+
+  function ensureRoundingInConfig() {
+    roundingCheck.command = ["grep", "-q", root.roundingMarker, root.configFile]
+    roundingCheck.running = true
   }
 
   function eventParts(event, count) {
@@ -81,11 +94,18 @@ Item {
 
   function statusJson() {
     return JSON.stringify({
-      applied: root.applied,
-      selector: "w[tv1]s[false]",
-      gapsIn: 0,
-      gapsOut: 0,
-      borders: false
+      smartGaps: {
+        applied: root.applied,
+        selector: "w[tv1]s[false]",
+        gapsIn: 0,
+        gapsOut: 0,
+        borders: false
+      },
+      roundedCorners: {
+        enabled: true,
+        radius: 8,
+        method: "looknfeel.lua config"
+      }
     })
   }
 
@@ -95,14 +115,14 @@ Item {
     stdout: StdioCollector {
       onStreamFinished: {
         if (text.trim() !== "" && text.trim() !== "ok")
-          console.log("super-switcher smart-gaps: " + text.trim())
+          console.log("super-switcher arrangements: " + text.trim())
       }
     }
 
     stderr: StdioCollector {
       onStreamFinished: {
         if (text.trim() !== "")
-          console.warn("super-switcher smart-gaps: " + text.trim())
+          console.warn("super-switcher arrangements: " + text.trim())
       }
     }
 
@@ -110,6 +130,37 @@ Item {
       root.applied = exitCode === 0
       if (root.applyPending && !root.unloading)
         Qt.callLater(root.applyRule)
+    }
+  }
+
+  Process {
+    id: roundingCheck
+
+    onExited: function(exitCode) {
+      if (exitCode !== 0 && !root.unloading) {
+        // 标记不存在, 追加并 reload
+        roundingAppend.running = true
+      }
+    }
+  }
+
+  Process {
+    id: roundingAppend
+
+    command: ["sh", "-c", "echo '" + root.roundingBlock + "' >> " + root.configFile + " && hyprctl reload"]
+
+    stdout: StdioCollector {
+      onStreamFinished: {
+        if (text.trim() !== "")
+          console.log("super-switcher arrangements rounding: " + text.trim())
+      }
+    }
+
+    stderr: StdioCollector {
+      onStreamFinished: {
+        if (text.trim() !== "")
+          console.warn("super-switcher arrangements rounding: " + text.trim())
+      }
     }
   }
 
@@ -127,15 +178,20 @@ Item {
   }
 
   IpcHandler {
-    target: "io.github.jfdnet.super-switcher.smart-gaps"
+    target: "io.github.jfdnet.super-switcher.arrangements"
 
     function status(): string { return root.statusJson() }
   }
 
-  Component.onCompleted: applyTimer.start()
+  Component.onCompleted: {
+    applyTimer.start()
+    ensureRoundingInConfig()
+  }
 
   Component.onDestruction: {
     root.unloading = true
     Quickshell.execDetached(["hyprctl", "eval", root.disableRuleCode])
+    // 圆角不卸载——它是用户配置的一部分, 插件只负责确保它存在
+    // 要移除: 手动删 looknfeel.lua 中的 Arrangements plugin 块
   }
 }

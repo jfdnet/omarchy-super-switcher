@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Hyprland
 import "../orbit" as Orbit
 import "../gallery" as GalleryMod
-import "../smartgaps" as SmartGapsMod
+import "../arrangements" as ArrangementsMod
 import "WorkspaceBarConfig.js" as WorkspaceBarConfig
 
 Item {
@@ -232,7 +232,7 @@ Item {
     // Workspace Gallery（Super+A + 三指手势）：常驻加载，随 service 存活
     GalleryMod.Gallery {}
 
-    // Smart Gaps：单平铺窗口工作区自动去边距/边框（随 service 存活，卸载时还原）
-    SmartGapsMod.SmartGaps {}
+    // Arrangements：smart gaps（单窗去边距/边框）+ rounded corners（全局窗体圆角）
+    ArrangementsMod.Arrangements {}
 
 }
