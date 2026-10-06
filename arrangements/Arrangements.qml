@@ -23,7 +23,7 @@ Item {
   // 全局圆角写入 ~/.config/hypr/looknfeel.lua（omarchy Lua 配置的标准用户覆盖点）
   // 运行时 hyprctl keyword 被 Lua 解析器拦截, 只能走配置文件 + reload 路径
   readonly property string configFile: Quickshell.env("HOME") + "/.config/hypr/looknfeel.lua"
-  readonly property string roundingBlock: "\n-- Arrangements plugin: 全局窗体圆角\nhl.config({\n  decoration = {\n    rounding = 8,\n  },\n})\n"
+  readonly property string roundingBlock: "\n-- Arrangements plugin: 全局窗体圆角\nhl.config({\n  decoration = {\n    rounding = 12,\n  },\n})\n"
   readonly property string roundingMarker: "Arrangements plugin"
 
   function applyRule() {
