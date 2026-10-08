@@ -3,6 +3,9 @@ import qs.Commons
 import "../SwitcherLogic.js" as Logic
 
 Item {
+    // Qt 6.12 compat: shell renamed Color→ShellColor (omarchy#14511). Probe at runtime, keep both eras working.
+    readonly property var pal: { try { return ShellColor } catch (e) { return Color } }
+
   id: root
 
   property var windows: []
@@ -59,7 +62,7 @@ Item {
     anchors.topMargin: Style.space(6)
     anchors.horizontalCenter: parent.horizontalCenter
     text: (Math.floor(root.selectedIndex / root.pageSize) + 1) + " / " + Math.ceil(root.windows.length / root.pageSize)
-    color: Color.menu.text
+    color: pal.menu.text
     opacity: 0.6
     font.family: Style.font.menuFamily
     font.pixelSize: Style.font.caption

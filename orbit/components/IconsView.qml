@@ -2,6 +2,9 @@ import QtQuick
 import qs.Commons
 
 Item {
+    // Qt 6.12 compat: shell renamed Color→ShellColor (omarchy#14511). Probe at runtime, keep both eras working.
+    readonly property var pal: { try { return ShellColor } catch (e) { return Color } }
+
   id: root
 
   property var windows: []
@@ -76,9 +79,9 @@ Item {
           width: root.tileWidth
           height: root.tileHeight
           radius: Style.cornerRadius
-          color: selected ? Color.menu.selectedBackground : (hoverHandler.hovered ? Qt.alpha(Color.menu.text, 0.08) : "transparent")
+          color: selected ? pal.menu.selectedBackground : (hoverHandler.hovered ? Qt.alpha(pal.menu.text, 0.08) : "transparent")
           border.width: selected ? 2 : 1
-          border.color: selected ? Color.accent : Qt.alpha(Color.menu.border, 0.55)
+          border.color: selected ? pal.accent : Qt.alpha(pal.menu.border, 0.55)
           scale: selected ? 1 : 0.96
 
           Behavior on scale {
@@ -112,7 +115,7 @@ Item {
             anchors.rightMargin: Style.space(6)
             text: tile.modelData.label
             textFormat: Text.PlainText
-            color: tile.selected ? Color.menu.selectedText : Color.menu.text
+            color: tile.selected ? pal.menu.selectedText : pal.menu.text
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
             maximumLineCount: 1

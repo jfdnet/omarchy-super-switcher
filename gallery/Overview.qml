@@ -12,6 +12,9 @@ import Quickshell.Hyprland._GlobalShortcuts 0.0
 import "ColorUtils.js" as ColorUtils
 
 Scope {
+    // Qt 6.12 compat: shell renamed Color→ShellColor (omarchy#14511). Probe at runtime, keep both eras working.
+    readonly property var pal: { try { return ShellColor } catch (e) { return Color } }
+
     id: overviewScope
 
     // Omarchy's panel host calls these for `shell summon/hide/toggle`.
@@ -280,7 +283,7 @@ Scope {
             Rectangle {
                 id: scrim
                 anchors.fill: parent
-                color: ColorUtils.transparentize(Color.background, 0.25)
+                color: ColorUtils.transparentize(pal.background, 0.25)
                 visible: GlobalStates.overviewOpen
                 opacity: GlobalStates.overviewOpen ? 1 : 0
 

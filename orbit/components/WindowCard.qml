@@ -3,6 +3,9 @@ import Quickshell.Wayland
 import qs.Commons
 
 Rectangle {
+    // Qt 6.12 compat: shell renamed Color→ShellColor (omarchy#14511). Probe at runtime, keep both eras working.
+    readonly property var pal: { try { return ShellColor } catch (e) { return Color } }
+
   id: root
 
   property var windowData: null
@@ -15,9 +18,9 @@ Rectangle {
   signal activateRequested(int index)
 
   radius: Style.cornerRadius
-  color: root.selected ? Color.menu.selectedBackground : Color.background
+  color: root.selected ? pal.menu.selectedBackground : pal.background
   border.width: root.selected ? 2 : 1
-  border.color: root.selected ? Color.accent : Color.menu.border
+  border.color: root.selected ? pal.accent : pal.menu.border
   clip: true
 
   Rectangle {
@@ -32,7 +35,7 @@ Rectangle {
       bottomMargin: Style.space(6)
     }
     radius: Math.max(2, Style.cornerRadius - Style.space(3))
-    color: Qt.alpha(Color.menu.text, 0.05)
+    color: Qt.alpha(pal.menu.text, 0.05)
     clip: true
 
     AppIcon {
@@ -65,7 +68,7 @@ Rectangle {
       bottom: parent.bottom
     }
     height: Style.space(38)
-    color: root.selected ? Qt.alpha(Color.accent, 0.16) : "transparent"
+    color: root.selected ? Qt.alpha(pal.accent, 0.16) : "transparent"
 
     AppIcon {
       id: headerIcon
@@ -88,7 +91,7 @@ Rectangle {
       }
       text: root.windowData ? root.windowData.label : ""
       textFormat: Text.PlainText
-      color: root.selected ? Color.menu.selectedText : Color.menu.text
+      color: root.selected ? pal.menu.selectedText : pal.menu.text
       elide: Text.ElideRight
       maximumLineCount: 1
       font.family: Style.font.menuFamily

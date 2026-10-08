@@ -3,18 +3,21 @@ import QtQuick
 import qs.Commons
 
 QtObject {
-    readonly property color bg: Color.background
-    readonly property color panel: Color.background
-    readonly property color fg: Color.foreground
-    readonly property color dim: Color.muted
-    readonly property color line: Color.muted
-    readonly property color accent: Color.accent
-    readonly property color selection: Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.22)
-    readonly property color inactiveBorder: Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.32)
-    readonly property color controlActiveBorder: Color.accent
-    readonly property color surfaceRaised: Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.10)
-    readonly property color surfaceHover: Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.18)
-    readonly property color surfaceSubtle: Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.06)
+    // Qt 6.12 compat: shell renamed Color→ShellColor (omarchy#14511). Probe at runtime, keep both eras working.
+    readonly property var pal: { try { return ShellColor } catch (e) { return Color } }
+
+    readonly property color bg: pal.background
+    readonly property color panel: pal.background
+    readonly property color fg: pal.foreground
+    readonly property color dim: pal.muted
+    readonly property color line: pal.muted
+    readonly property color accent: pal.accent
+    readonly property color selection: Qt.rgba(pal.accent.r, pal.accent.g, pal.accent.b, 0.22)
+    readonly property color inactiveBorder: Qt.rgba(pal.foreground.r, pal.foreground.g, pal.foreground.b, 0.32)
+    readonly property color controlActiveBorder: pal.accent
+    readonly property color surfaceRaised: Qt.rgba(pal.foreground.r, pal.foreground.g, pal.foreground.b, 0.10)
+    readonly property color surfaceHover: Qt.rgba(pal.foreground.r, pal.foreground.g, pal.foreground.b, 0.18)
+    readonly property color surfaceSubtle: Qt.rgba(pal.foreground.r, pal.foreground.g, pal.foreground.b, 0.06)
     readonly property color menuBorder: inactiveBorder
     readonly property color surfacePressed: surfaceHover
     readonly property color shellBorder: inactiveBorder

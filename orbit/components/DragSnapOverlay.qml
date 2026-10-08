@@ -5,6 +5,9 @@ import qs.Commons
 import "../SwitcherLogic.js" as Logic
 
 PanelWindow {
+    // Qt 6.12 compat: shell renamed Color→ShellColor (omarchy#14511). Probe at runtime, keep both eras working.
+    readonly property var pal: { try { return ShellColor } catch (e) { return Color } }
+
   id: root
 
   required property var gesture
@@ -40,9 +43,9 @@ PanelWindow {
     width: root.cardGeometry.width
     height: root.cardGeometry.height
     radius: Style.cornerRadius * 2
-    color: Color.menu.background
+    color: pal.menu.background
     border.width: 1
-    border.color: Color.accent
+    border.color: pal.accent
 
     Text {
       anchors {
@@ -51,7 +54,7 @@ PanelWindow {
         horizontalCenter: parent.horizontalCenter
       }
       text: "Orbit · Drop onto a zone"
-      color: Color.menu.text
+      color: pal.menu.text
       font.family: Style.font.menuFamily
       font.pixelSize: Style.font.body
       font.bold: true
@@ -75,7 +78,7 @@ PanelWindow {
         horizontalCenter: parent.horizontalCenter
       }
       text: "Maximized = Super + Alt + F · Fullscreen = Super + F · Esc cancels"
-      color: Color.menu.text
+      color: pal.menu.text
       opacity: 0.65
       font.family: Style.font.menuFamily
       font.pixelSize: Style.font.caption

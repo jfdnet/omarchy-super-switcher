@@ -8,6 +8,9 @@ import "components"
 import "SwitcherLogic.js" as Logic
 
 Item {
+    // Qt 6.12 compat: shell renamed Color→ShellColor (omarchy#14511). Probe at runtime, keep both eras working.
+    readonly property var pal: { try { return ShellColor } catch (e) { return Color } }
+
   id: root
 
   readonly property string pluginId: "io.github.jfdnet.super-switcher"
@@ -1754,7 +1757,7 @@ Item {
 
       Rectangle {
         anchors.fill: parent
-        color: Color.menu.scrim
+        color: pal.menu.scrim
 
         TapHandler {
           onTapped: root.closeManager()
@@ -1768,9 +1771,9 @@ Item {
         width: root.managerMode === "settings" ? Style.space(560) : root.managerMode === "snap" ? Math.min(managerPanel.width - Style.gapsOut * 2, Style.space(640)) : Math.min(managerPanel.width - Style.gapsOut * 2, Style.space(560))
         height: root.managerMode === "settings" ? Style.space(490) : root.managerMode === "assist" ? Math.min(managerPanel.height - Style.gapsOut * 2, Style.space(570)) : Style.space(360)
         radius: Style.cornerRadius * 2
-        color: Color.menu.background
+        color: pal.menu.background
         border.width: 1
-        border.color: Color.menu.border
+        border.color: pal.menu.border
         focus: true
 
         Keys.onPressed: event => {
@@ -1814,7 +1817,7 @@ Item {
             horizontalCenter: parent.horizontalCenter
           }
           text: root.managerMode === "settings" ? "Orbit · Window modes" : root.managerMode === "assist" ? "Orbit · Snap Assist" : "Orbit · Snap layouts"
-          color: Color.menu.text
+          color: pal.menu.text
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.body
           font.bold: true
@@ -1859,7 +1862,7 @@ Item {
             Text {
               anchors.horizontalCenter: parent.horizontalCenter
               text: "Arrows choose · Enter snaps · Esc cancels"
-              color: Color.menu.text
+              color: pal.menu.text
               opacity: 0.55
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
@@ -1892,7 +1895,7 @@ Item {
               textFormat: Text.PlainText
               wrapMode: Text.WordWrap
               horizontalAlignment: Text.AlignHCenter
-              color: Color.menu.text
+              color: pal.menu.text
               opacity: 0.65
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption
@@ -1974,7 +1977,7 @@ Item {
             id: switcherScrim
 
             anchors.fill: parent
-            color: Color.menu.scrim
+            color: pal.menu.scrim
 
             TapHandler {
               onTapped: root.cancel()
@@ -1995,9 +1998,9 @@ Item {
             width: Math.min(panel.width - Style.gapsOut * 2, Math.max(Style.space(360), viewLoader.width + Style.space(40)))
             height: Math.min(panel.height - Style.gapsOut * 2, viewLoader.height + Style.space(144))
             radius: Style.cornerRadius * 2
-            color: Color.menu.background
+            color: pal.menu.background
             border.width: 1
-            border.color: Color.menu.border
+            border.color: pal.menu.border
             focus: true
 
             Keys.onPressed: event => {
@@ -2109,7 +2112,7 @@ Item {
               width: Math.min(parent.width - Style.space(48), Style.space(620))
               text: root.entries[root.selectedIndex] ? root.entries[root.selectedIndex].title : ""
               textFormat: Text.PlainText
-              color: Color.menu.text
+              color: pal.menu.text
               opacity: 0.72
               elide: Text.ElideRight
               horizontalAlignment: Text.AlignHCenter
@@ -2146,7 +2149,7 @@ Item {
             anchors.fill: parent
             z: 1000
             opacity: root.activationCommitInProgress && root.handoffNeedsCover && outgoingCapture.hasContent ? 1 : 0
-            color: Color.menu.background
+            color: pal.menu.background
             clip: true
 
             ScreencopyView {

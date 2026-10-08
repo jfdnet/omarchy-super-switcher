@@ -5,6 +5,9 @@ import qs.Ui
 import "."
 
 Panel {
+    // Qt 6.12 compat: shell renamed Color→ShellColor (omarchy#14511). Probe at runtime, keep both eras working.
+    readonly property var pal: { try { return ShellColor } catch (e) { return Color } }
+
     id: root
     moduleName: "io.github.jfdnet.super-switcher"
     manageIpc: false
@@ -12,8 +15,8 @@ Panel {
     property var anchorItem: null
     property var hostWidget: null
     readonly property string pluginVersion: "0.1.0"
-    readonly property color panelForeground: Color.popups.text
-    readonly property color panelMuted: Util.alpha(Color.popups.text, 0.58)
+    readonly property color panelForeground: pal.popups.text
+    readonly property color panelMuted: Util.alpha(pal.popups.text, 0.58)
 
     function open() { root.controller.show() }
     function close() { root.controller.hide() }
@@ -76,10 +79,10 @@ Panel {
 
         height: rowText.implicitHeight + Style.space(16)
         color: row.checked
-            ? Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.18)
-            : Util.alpha(Color.popups.text, 0.06)
+            ? Qt.rgba(pal.accent.r, pal.accent.g, pal.accent.b, 0.18)
+            : Util.alpha(pal.popups.text, 0.06)
         border.width: 1
-        border.color: row.checked ? Color.accent : Color.popups.border
+        border.color: row.checked ? pal.accent : pal.popups.border
 
         Column {
             id: rowText
@@ -117,13 +120,13 @@ Panel {
             width: pillLabel.implicitWidth + Style.space(16)
             height: pillLabel.implicitHeight + Style.space(6)
             radius: height / 2
-            color: row.checked ? Color.accent : Util.alpha(Color.popups.text, 0.14)
+            color: row.checked ? pal.accent : Util.alpha(pal.popups.text, 0.14)
 
             Text {
                 id: pillLabel
                 anchors.centerIn: parent
                 text: row.checked ? "ON" : "OFF"
-                color: row.checked ? Color.popups.background : root.panelMuted
+                color: row.checked ? pal.popups.background : root.panelMuted
                 font.family: root.bar ? root.bar.fontFamily : Style.font.family
                 font.pixelSize: Style.font.caption
                 font.bold: true
@@ -207,7 +210,7 @@ Panel {
                         Rectangle {
                             width: menuColumn.width
                             height: 1
-                            color: Util.alpha(Color.popups.text, 0.12)
+                            color: Util.alpha(pal.popups.text, 0.12)
                         }
 
                         Text {
@@ -234,7 +237,7 @@ Panel {
                             width: menuColumn.width
                             height: 1
                             visible: root.multiMonitor
-                            color: Util.alpha(Color.popups.text, 0.12)
+                            color: Util.alpha(pal.popups.text, 0.12)
                         }
 
                         Text {

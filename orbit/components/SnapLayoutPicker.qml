@@ -2,6 +2,9 @@ import QtQuick
 import qs.Commons
 
 Grid {
+    // Qt 6.12 compat: shell renamed Color→ShellColor (omarchy#14511). Probe at runtime, keep both eras working.
+    readonly property var pal: { try { return ShellColor } catch (e) { return Color } }
+
   id: root
 
   property var layouts: []
@@ -53,9 +56,9 @@ Grid {
       width: Style.space(136)
       height: Style.space(108)
       radius: Style.cornerRadius
-      color: Color.background
+      color: pal.background
       border.width: root.selectedLayout === index ? 2 : 1
-      border.color: root.selectedLayout === index ? Color.accent : Color.menu.border
+      border.color: root.selectedLayout === index ? pal.accent : pal.menu.border
 
       Item {
         id: layoutCanvas
@@ -85,9 +88,9 @@ Grid {
             width: modelData.width * layoutCanvas.width - Style.space(4)
             height: modelData.height * layoutCanvas.height - Style.space(4)
             radius: Math.max(2, Style.cornerRadius - Style.space(4))
-            color: selected || hoverHandler.hovered ? Qt.alpha(Color.accent, selected ? 0.62 : 0.36) : Qt.alpha(Color.menu.text, 0.13)
+            color: selected || hoverHandler.hovered ? Qt.alpha(pal.accent, selected ? 0.62 : 0.36) : Qt.alpha(pal.menu.text, 0.13)
             border.width: selected ? 2 : 1
-            border.color: selected ? Color.accent : Qt.alpha(Color.menu.text, 0.25)
+            border.color: selected ? pal.accent : Qt.alpha(pal.menu.text, 0.25)
 
             HoverHandler {
               id: hoverHandler
@@ -113,7 +116,7 @@ Grid {
           horizontalCenter: parent.horizontalCenter
         }
         text: String(layoutTile.layoutData.label || "Layout")
-        color: Color.menu.text
+        color: pal.menu.text
         opacity: 0.72
         font.family: Style.font.menuFamily
         font.pixelSize: Style.font.caption
