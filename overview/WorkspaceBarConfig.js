@@ -50,8 +50,13 @@ function configuredOverviewMode(shell) {
         if (!Array.isArray(entries))
             continue;
         for (const entry of entries) {
-            const id = typeof entry === "string" ? entry
+            let id = typeof entry === "string" ? entry
                 : (isPlainObject(entry) ? entry.id : "");
+            // The bar layout may reference the plugin as a widget group
+            // ("G:<plugin-id>", as written by omarchy bar commands); the
+            // group form still activates the overview bindings.
+            if (id.startsWith("G:"))
+                id = id.slice(2);
             if (id === "io.github.jfdnet.super-switcher")
                 return isPlainObject(entry) && entry.sortMode === "legacy"
                     ? "legacy" : "system";
