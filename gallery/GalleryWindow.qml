@@ -106,9 +106,13 @@ OverviewWindow {
     scaleX: root.previewWidth / Math.max(1, root.galleryRoot.usableLogicalWidth(root.sourceMonitor))
     scaleY: root.previewHeight / Math.max(1, root.galleryRoot.usableLogicalHeight(root.sourceMonitor))
     scale: Math.min(scaleX, scaleY)
-    opacity: root.Drag.active && root.closeOnActivate
-        ? 0
-        : (root.anyPreviewContent || root.showingFreeze || root.captureAttempt >= 8 ? 1 : 0)
+    fadeEnabled: false
+
+    function computeOpacity() {
+        if (root.Drag.active && root.closeOnActivate)
+            return 0;
+        return root.anyPreviewContent || root.showingFreeze || root.captureAttempt >= 8 ? 1 : 0;
+    }
     topLeftRadius: 5
     topRightRadius: 5
     bottomLeftRadius: 5
