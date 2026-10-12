@@ -411,6 +411,7 @@ Item {
     //  - occupied cards slide from their old slot; a freshly filled slot
     //    keeps its position; brand-new workspaces enter from the right edge.
     property var previousTopEntries: null
+    property bool stripFirstDiff: true
     property var introPlans: ({})
     property var exitingTopCards: []
     // Tune the strip pacing here: reveal beat, slide/displacement and exit
@@ -472,7 +473,21 @@ Item {
             root.previousTopEntries = null;
             return;
         }
-        const previous = root.previousTopEntries;
+        let previous = root.previousTopEntries;
+        // Fresh-open choreography: the widget is recreated on every Gallery
+        // open, so the first populated diff must diff against an EMPTY strip —
+        // every card then enters from the right edge with the reveal beat.
+        // Without this the intro only played when the workspace model
+        // happened to warm up in two steps (cold first open); warm opens
+        // diffed against an equal baseline and cards popped into place.
+        // Trailing-only ticks (occupied data not ready yet) are skipped so
+        // the first card isn't misread as "filling the trailing slot".
+        if (root.stripFirstDiff) {
+            if (!root.entries.some(entry => !entry.isTrailingEmpty))
+                return;
+            previous = [];
+            root.stripFirstDiff = false;
+        }
         if (previous === null) {
             root.previousTopEntries = root.entries;
             return;
