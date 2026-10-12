@@ -112,27 +112,11 @@ Item { // Window
     // ScreencopyView delivers the first frame asynchronously. Fade a window
     // in when that frame arrives instead of making every workspace card flash
     // independently during Overview startup.
-    // Computed via a function (not a plain binding) so derived types such as
-    // GalleryWindow can extend the condition by overriding computeOpacity()
-    // instead of overriding the opacity property — a property override on top
-    // of this Behavior makes Qt 6.12 attempt a second value interceptor and
-    // spam "Attempting to set another interceptor" warnings per instance.
-    opacity: root.computeOpacity()
-
-    // Derived types instantiated through Quickshell's lazy machinery
-    // (GalleryWindow) collide with this Behavior's value interceptor and
-    // both warn and lose the fade; they can switch it off via fadeEnabled.
-    property bool fadeEnabled: true
-
-    function computeOpacity() {
-        return root.anyPreviewContent || root.showingFreeze || root.captureAttempt >= 8 ? 1 : 0;
-    }
+    opacity: root.anyPreviewContent || root.showingFreeze || root.captureAttempt >= 8 ? 1 : 0
 
     Behavior on opacity {
-        enabled: root.fadeEnabled
         NumberAnimation { duration: 40; easing.type: Easing.OutCubic }
     }
-
 
     function holdCurrentPosition() {
         holdX = x;

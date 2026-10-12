@@ -128,10 +128,6 @@ Item { // Window
         NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
     }
 
-    Behavior on opacity {
-        NumberAnimation { duration: 40; easing.type: Easing.OutCubic }
-    }
-
     Behavior on x {
         enabled: root.geometryAnimationEnabled && !root.Drag.active && !root.holdPosition
         NumberAnimation { duration: 420; easing.type: Easing.OutCubic }
