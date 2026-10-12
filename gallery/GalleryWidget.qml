@@ -50,6 +50,16 @@ Item {
             monitor: entry.monitorName ?? ""
         })));
         if (key !== root.stableEntriesKey) {
+            // Opening guard: right after the Gallery opens, capture startup
+            // can transiently drop occupied workspaces from the model
+            // (4 -> 1 -> 4 flapping, also the source of the entries binding
+            // loop). A shrinking strip during that window is a dropout, not a
+            // real closure — keep the current visual so the intro choreography
+            // survives; growth and post-guard changes swap normally.
+            const occupiedNow = next.filter(e => !e.isTrailingEmpty).length;
+            const occupiedStable = root.stableEntries.filter(e => !e.isTrailingEmpty).length;
+            if (occupiedNow < occupiedStable && Date.now() - root.openedAt < 2000)
+                return root.stableEntries;
             root.stableEntriesKey = key;
             root.stableEntries = next;
         }
@@ -57,6 +67,7 @@ Item {
     }
     property var stableEntries: []
     property string stableEntriesKey: ""
+    readonly property real openedAt: Date.now()
     readonly property var entryIds: root.entries.map(entry => entry.id)
     readonly property int selectedWorkspaceId: GlobalStates.overviewFocusedWorkspaceId > 0
         ? GlobalStates.overviewFocusedWorkspaceId
