@@ -28,7 +28,7 @@ Scope {
     }
 
     function open(payload) {
-        closeAnimation.stop();
+        revealAnimation.stop();
         galleryScope.closing = false;
         galleryScope.commitSelectionAfterClose = false;
         const anchor = Hyprland.focusedMonitor?.name ?? "";
@@ -37,17 +37,17 @@ Scope {
         GlobalStates.overviewFocusedWorkspaceId = galleryScope.currentWorkspaceId();
         GlobalStates.overviewOpen = true;
         galleryScope.revealProgress = 0;
-        openAnimation.restart();
+        revealAnimation.restart();
     }
 
     function close(commitSelection = false) {
         if (!GlobalStates.overviewOpen || galleryScope.closing)
             return;
         GlobalStates.gallerySwipeFinished(true, 0);
-        openAnimation.stop();
+        revealAnimation.stop();
         galleryScope.commitSelectionAfterClose = commitSelection;
         galleryScope.closing = true;
-        closeAnimation.restart();
+        revealAnimation.restart();
     }
 
     function toggle() {
@@ -131,23 +131,20 @@ Scope {
         galleryScope.close(true);
     }
 
+    // Single direction-parameterized reveal animation. Two NumberAnimations
+    // targeting the same property fight over Qt's one value interceptor
+    // (Qt 6.12 drops the second one silently) — the split open/close pair
+    // made the open reveal snap while the close still animated.
     NumberAnimation {
-        id: openAnimation
+        id: revealAnimation
         target: galleryScope
         property: "revealProgress"
-        to: 1
-        duration: 240
-        easing.type: Easing.OutCubic
-    }
-
-    NumberAnimation {
-        id: closeAnimation
-        target: galleryScope
-        property: "revealProgress"
-        to: 0
-        duration: 220
-        easing.type: Easing.InCubic
+        to: galleryScope.closing ? 0 : 1
+        duration: galleryScope.closing ? 220 : 240
+        easing.type: galleryScope.closing ? Easing.InCubic : Easing.OutCubic
         onFinished: {
+            if (!galleryScope.closing)
+                return;
             if (galleryScope.commitSelectionAfterClose)
                 WorkspaceNavigation.commitSelectedWorkspace();
             GlobalStates.overviewOpen = false;
