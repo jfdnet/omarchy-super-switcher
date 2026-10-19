@@ -25,19 +25,18 @@ Item {
         + (ToplevelManager.toplevels.values?.length ?? 0)
     readonly property url wallpaperUrl: Wallpaper.readyUrl !== ""
         ? Wallpaper.readyUrl : Wallpaper.requestedUrl
-    readonly property var entries: {
-        // Re-evaluates on every model tick, but only swaps the array when the
-        // VISUAL structure actually changed (ids, order, trailing slot) —
-        // identical layouts keep the same reference, so the ListView, its
-        // delegates and their thumbnail captures never rebuild just because a
-        // serial bumped or pending flags flipped. While a drag/compaction
-        // batch mutates pending state statement by statement, rendering stays
-        // frozen on the current layout; the single post-batch recompute then
-        // diffs pre-drop vs final directly.
+    // entries 由 recomputeEntries() 命令式维护(模型 tick/冻结恢复/屏切换时触发)。
+    // 曾经是"读 stableEntries 又写 stableEntries"的绑定 — 求值期属性读写成环,
+    // 每次开 Gallery 刷 10 条 "Binding loop detected"。命令式重算语义不变:
+    // 结构未变保持同一数组引用(ListView/委托/缩略图不重建), 拖拽/压缩批次期间
+    // 冻结, 开栏 2s 护栏拦截捕获启动期的瞬时塌陷。
+    property var entries: []
+    property var stableEntries: []
+    property string stableEntriesKey: ""
+
+    function recomputeEntries() {
         if (GlobalStates.stripTransitionsSuspended)
-            return root.stableEntries;
-        const revision = root.modelRevision;
-        void revision;
+            return;
         const name = root.monitor?.name ?? "";
         const scoped = ServiceManager.workspace.overviewWorkspaceEntriesForMonitor(
             name, true, {}, true, true) ?? [];
@@ -49,24 +48,29 @@ Item {
             trailing: entry.isTrailingEmpty === true,
             monitor: entry.monitorName ?? ""
         })));
-        if (key !== root.stableEntriesKey) {
-            // Opening guard: right after the Gallery opens, capture startup
-            // can transiently drop occupied workspaces from the model
-            // (4 -> 1 -> 4 flapping, also the source of the entries binding
-            // loop). A shrinking strip during that window is a dropout, not a
-            // real closure — keep the current visual so the intro choreography
-            // survives; growth and post-guard changes swap normally.
-            const occupiedNow = next.filter(e => !e.isTrailingEmpty).length;
-            const occupiedStable = root.stableEntries.filter(e => !e.isTrailingEmpty).length;
-            if (occupiedNow < occupiedStable && Date.now() - root.openedAt < 2000)
-                return root.stableEntries;
-            root.stableEntriesKey = key;
-            root.stableEntries = next;
-        }
-        return root.stableEntries;
+        if (key === root.stableEntriesKey)
+            return;
+        const occupiedNow = next.filter(e => !e.isTrailingEmpty).length;
+        const occupiedStable = root.stableEntries.filter(e => !e.isTrailingEmpty).length;
+        if (occupiedNow < occupiedStable && Date.now() - root.openedAt < 2000)
+            return;
+        root.stableEntriesKey = key;
+        root.stableEntries = next;
+        root.entries = next;
     }
-    property var stableEntries: []
-    property string stableEntriesKey: ""
+
+    onModelRevisionChanged: recomputeEntries()
+    onMonitorChanged: recomputeEntries()
+
+    Connections {
+        target: GlobalStates
+        function onStripTransitionsSuspendedChanged() {
+            if (!GlobalStates.stripTransitionsSuspended)
+                root.recomputeEntries()
+        }
+    }
+
+    Component.onCompleted: recomputeEntries()
     readonly property real openedAt: Date.now()
     readonly property var entryIds: root.entries.map(entry => entry.id)
     readonly property int selectedWorkspaceId: GlobalStates.overviewFocusedWorkspaceId > 0
