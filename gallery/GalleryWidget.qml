@@ -156,6 +156,7 @@ Item {
                 return "";
             return root.effectiveWorkspaceId(win, address) === workspaceId ? address : "";
         }).filter(address => address.length > 0);
+        return __r;
     }
 
     function clamp01(value) {

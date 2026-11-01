@@ -96,7 +96,10 @@ function buildLayout(inputWindows, viewportWidth, viewportHeight) {
     const width = Math.max(1, Number(viewportWidth));
     const height = Math.max(1, Number(viewportHeight));
     const overlap = maximumOverlap(windows);
-    const enabled = windows.length >= 3 || (windows.length === 2 && overlap >= 0.35);
+    // n>=2 一律展开: 0.35 重叠门槛让两窗瓦片在拖入瞬间 enabled 翻转
+    // (拖入窗口的自然坐标重叠不足 → 布局塌缩回自然坐标 → 视觉上"没有实时渲染")。
+    // 双区域布局(主 56% + 副)对任意两窗都成立, 门槛只会制造不连续。
+    const enabled = windows.length >= 2;
     if (!enabled)
         return { enabled: false, overlap, rects: {} };
 

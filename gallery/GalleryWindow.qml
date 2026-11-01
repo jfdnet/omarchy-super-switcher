@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import "."
 import QtQuick
+import qs.Commons
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Wayland._ToplevelManagement
@@ -136,6 +137,52 @@ OverviewWindow {
 
     Component.onDestruction: CrossMonitorDrag.removeWindowTarget(root.windowDropTargetKey)
 
+    // 捕获失败兜底(quickshell#1418: Hyprland 0.57 toplevel 截屏全挂):
+    // captureAttempt 达到上限且无任何帧时, 用 app 图标+标题占位卡保住
+    // "窗口存在/数量/位置"的可见性, 上游修复后自动回到实时缩略图。
+    Rectangle {
+        id: captureFallback
+        visible: root.captureAttempt >= 8 && !root.anyPreviewContent && !root.showingFreeze
+        anchors.fill: parent
+        radius: 5
+        color: Appearance.colors.colSurfaceContainer
+        border.width: 1
+        border.color: Appearance.colors.pillBorder
+        opacity: 0.96
+
+        Column {
+            anchors.centerIn: parent
+            spacing: 6
+            width: parent.width * 0.9
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: root.windowData?.class
+                    ? String(root.windowData.class).split(".").pop().slice(0, 1).toUpperCase()
+                    : "?"
+                color: Appearance.colors.colOnLayer1
+                font.family: Style.font.family
+                font.pixelSize: Math.max(18, Math.min(42, parent.width * 0.22))
+                font.weight: Font.Bold
+                renderType: Text.NativeRendering
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                elide: Text.ElideMiddle
+                maximumLineCount: 2
+                wrapMode: Text.WordWrap
+                text: root.windowData?.title ?? ""
+                color: Appearance.colors.colOnLayer1
+                opacity: 0.8
+                font.family: Style.font.family
+                font.pixelSize: 11
+                renderType: Text.NativeRendering
+            }
+        }
+    }
 
     Drag.hotSpot.x: width / 2
     Drag.hotSpot.y: height / 2

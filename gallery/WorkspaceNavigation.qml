@@ -624,7 +624,6 @@ Singleton {
     }
 
     function commitWindowDrag(windowAddress, currentWorkspaceId, targetWorkspace, targetIsTrailing, targetMonitorHint, placement, layoutAlreadyCommitted) {
-        root.resetOverviewDragState();
         if (!windowAddress || targetWorkspace === -1)
             return false;
 
