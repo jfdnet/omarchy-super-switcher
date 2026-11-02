@@ -26,6 +26,38 @@ Rectangle {
             ?? page.galleryRoot.monitorData;
         const logicalWidth = page.galleryRoot.usableLogicalWidth(monitor);
         const logicalHeight = page.galleryRoot.usableLogicalHeight(monitor);
+        const focusId = win?.focusHistoryID ?? 1000000;
+        // pending 期(窗口逻辑上已归入本桌面, 但真实几何还是前一个桌面的
+        // 旧值 —— 常为全屏/独占): 直接用旧几何会让该 app 铺满整个预览,
+        // 盖住已有 app。改用系统平铺式占位几何(对半分, 近似 dwindle 首切);
+        // 真实数据到达(IPC 移动后 clients 刷新)自动替换为精确镜像。
+        const realWs = win?.workspace?.id ?? -1;
+        const pendingHere = realWs > 0 && realWs !== page.entry.id;
+        if (pendingHere) {
+            const hasOthers = page.windowAddresses.some(a => {
+                if (a === address)
+                    return false;
+                const w = ServiceManager.workspace.clientByAddress(a);
+                return (w?.workspace?.id ?? -1) === page.entry.id;
+            });
+            if (hasOthers)
+                return {
+                    address,
+                    x: page.width * 0.5,
+                    y: 0,
+                    width: Math.max(1, page.width * 0.5),
+                    height: Math.max(1, page.height),
+                    focusHistoryId: focusId
+                };
+            return {
+                address,
+                x: 0,
+                y: 0,
+                width: Math.max(1, page.width),
+                height: Math.max(1, page.height),
+                focusHistoryId: focusId
+            };
+        }
         const relativeX = (win?.at?.[0] ?? 0) - (monitor?.x ?? 0) - (monitor?.reserved?.[0] ?? 0);
         const relativeY = (win?.at?.[1] ?? 0) - (monitor?.y ?? 0) - (monitor?.reserved?.[1] ?? 0);
         return {
@@ -34,7 +66,7 @@ Rectangle {
             y: Math.max(0, relativeY / logicalHeight * page.height),
             width: Math.max(1, (win?.size?.[0] ?? logicalWidth * 0.5) / logicalWidth * page.width),
             height: Math.max(1, (win?.size?.[1] ?? logicalHeight * 0.5) / logicalHeight * page.height),
-            focusHistoryId: win?.focusHistoryID ?? 1000000
+            focusHistoryId: focusId
         };
     })
     readonly property var exposeLayout: WorkspaceExpose.buildLayout(

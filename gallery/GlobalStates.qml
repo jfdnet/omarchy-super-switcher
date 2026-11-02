@@ -15,6 +15,36 @@ Singleton {
     signal galleryStepRequested(int delta)
 
     property bool barOpen: true
+
+    // ── 窗口静帧仓库(全静态 Gallery 架构) ────────────────────────
+    // Super+A 打开时每窗一次单帧捕获, 高清快照按地址入仓后立即断流;
+    // 整个 Gallery 会话期间卡片只显示仓库静帧, 拖动仅搬运地址→静帧映射,
+    // 不新建任何捕获上下文(Hyprland 0.57 会话中途建流必败,
+    // quickshell#1418)。重开 Gallery 时全部重新捕获覆盖。
+    // 仓库必须是全局单例: GalleryWidget 每显示器一个实例。
+    // 持有 grab result 对象即持有图像(URL 可跨卡存活, CrossMonitorDrag
+    // 已验证该模式)。
+    property var thumbnailCache: ({})
+    property int thumbnailCacheRev: 0
+    function storeThumbnail(addr, result) {
+        if (!addr || !result?.url)
+            return;
+        root.thumbnailCache[addr] = result;
+        root.thumbnailCacheRev += 1;
+    }
+    // 修剪依据全局 toplevel 全集 —— 窗口真关闭才删。
+    function pruneThumbnails(liveAddresses) {
+        const keep = new Set(liveAddresses ?? []);
+        let changed = false;
+        for (const addr of Object.keys(root.thumbnailCache)) {
+            if (!keep.has(addr)) {
+                delete root.thumbnailCache[addr];
+                changed = true;
+            }
+        }
+        if (changed)
+            root.thumbnailCacheRev += 1;
+    }
     property bool clipboardOpen: false
     property bool osdBrightnessOpen: false
     property bool osdVolumeOpen: false
@@ -128,6 +158,11 @@ Singleton {
         if (GlobalStates.overviewOpen) {
             GlobalStates.clipboardOpen = false;
             GlobalStates.overviewSearchMode = false;
+        } else {
+            // Gallery 会话结束 → 静帧全部作废。下一次 Super+A 打开时全部
+            // 窗口重新单帧捕获, 保证"每次进入即最新状态"。
+            GlobalStates.thumbnailCache = ({});
+            GlobalStates.thumbnailCacheRev += 1;
         }
     }
 

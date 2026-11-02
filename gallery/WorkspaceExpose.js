@@ -96,10 +96,11 @@ function buildLayout(inputWindows, viewportWidth, viewportHeight) {
     const width = Math.max(1, Number(viewportWidth));
     const height = Math.max(1, Number(viewportHeight));
     const overlap = maximumOverlap(windows);
-    // n>=2 一律展开: 0.35 重叠门槛让两窗瓦片在拖入瞬间 enabled 翻转
-    // (拖入窗口的自然坐标重叠不足 → 布局塌缩回自然坐标 → 视觉上"没有实时渲染")。
-    // 双区域布局(主 56% + 副)对任意两窗都成立, 门槛只会制造不连续。
-    const enabled = windows.length >= 2;
+    // 系统平铺优先: 瓦片默认按自然几何(= Hyprland/omarchy 真实平铺)等比
+    // 缩放显示, 拖入已有 app 的桌面后即时镜像系统的平铺结果。仅在自然
+    // 几何真正重叠时(monocle 同槽堆叠、浮动窗叠放)才启用扇出布局保住
+    // 可见性; n=2 的 0.35 门槛把扇出限制在实质叠放场景。
+    const enabled = windows.length >= 3 || (windows.length === 2 && overlap >= 0.35);
     if (!enabled)
         return { enabled: false, overlap, rects: {} };
 

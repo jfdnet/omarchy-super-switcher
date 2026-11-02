@@ -57,6 +57,10 @@ Item {
         root.stableEntriesKey = key;
         root.stableEntries = next;
         root.entries = next;
+        GlobalStates.pruneThumbnails(
+            ToplevelManager.toplevels.values.map(t =>
+                ServiceManager.workspace.normalizeAddress(
+                    t.HyprlandToplevel?.address)));
     }
 
     onModelRevisionChanged: recomputeEntries()

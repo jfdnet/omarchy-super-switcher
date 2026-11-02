@@ -86,6 +86,10 @@ OverviewWindow {
             root.closeOnActivate);
         const generation = CrossMonitorDrag.generation;
         root.grabPreview(result => CrossMonitorDrag.setPreview(result, generation));
+        // 落定烘焙没等到就拖动(实时流仍在): 此刻卡片静止(纵横比=最终值),
+        // 重烘焙出正形。断流后(已有落定静帧)绝不再烘焙 —— previewHost 已空,
+        // 烘了必是空图覆盖好图。回调若因源卡销毁丢失, 首帧保底版仍在仓库。
+        root.bakeIfLive();
         root.movedDuringPress = true;
         root.Drag.active = true;
         root.Drag.source = root;
@@ -94,6 +98,8 @@ OverviewWindow {
     }
 
     toplevel: root.modelToplevel
+    thumbnailStore: GlobalStates.storeThumbnail
+    thumbnailCacheKey: root.address
     captureActive: GlobalStates.overviewOpen
     monitorData: root.sourceMonitor
     widgetMonitor: root.galleryRoot.monitorData
