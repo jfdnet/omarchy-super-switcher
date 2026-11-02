@@ -42,6 +42,8 @@ Rectangle {
     property bool exposeReady: false
 
     onExposeLayoutChanged: {
+        if (page.exposeLayout.enabled)
+            exposeStartTimer.restart();
         else
             page.exposeReady = false;
     }
