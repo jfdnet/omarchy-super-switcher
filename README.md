@@ -21,7 +21,7 @@ gesture-driven workspace gallery — tuned for **stock Hyprland**.
 ### Workspace overview — Super+Tab
 - Live workspace previews, cycling with Super+Tab / Super+Shift+Tab.
 
-### Workspace Gallery — Super+A (gesture driven)
+### Workspace Gallery — Super+Alt+A (gesture driven)
 - Top strip: occupied workspaces plus **one empty "N" slot** — single click
   switches the preview, **double click enters the workspace** (works on
   window thumbnails too); double click (or a window drop) on the N slot
@@ -71,7 +71,7 @@ omarchy plugin remove io.github.jfdnet.super-switcher
   （已全屏的保持原模式）；光标锁进落点窗口防抢焦
 - **顶栏工作区标号**：≥2 个工作区占用时显示编号（聚焦高亮，点击跳转）
 - **Super+Tab**：工作区实时总览
-- **Super+A 工作区 Gallery**：顶部缩略图 = 已占用工作区 + 一个「＋」空槽
+- **Super+Alt+A 工作区 Gallery**：顶部缩略图 = 已占用工作区 + 一个「＋」空槽
   （单击预览/双击进入，双击或拖入空槽即新建并进入，槽满后自动追加下一个
   空槽）、大预览里点哪个 app 就全屏切到哪个 app、拖拽窗口跨工作区（落点
   即时生效，拖完实时压缩编号、顶栏始终连续，合拢带动画）、三指手势开关
