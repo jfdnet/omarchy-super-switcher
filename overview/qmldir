@@ -22,3 +22,8 @@ OverviewWidget 1.0 OverviewWidget.qml
 OverviewWindow 1.0 OverviewWindow.qml
 StyledText 1.0 StyledText.qml
 StyledImage 1.0 StyledImage.qml
+
+# Components (qt 6.12.0-4 起有 qmldir 的目录不再隐式导出未列类型)
+KeybindingService 1.0 KeybindingService.qml
+NerdIcon 1.0 NerdIcon.qml
+SettingsPanel 1.0 SettingsPanel.qml
