@@ -233,10 +233,10 @@ Item { // Window
         else
             root.slot0Armed = false;
         root.snapshotPreview();
-        // 首帧立即烘焙一版保底(打开后立刻拖动的场景: 拖动烘焙是异步的,
-        // 源卡可能在回调前被销毁 → 仓库空窗 → 目标卡丢失截图)。首版可能
-        // 带动画过渡态的纵横比, 400ms 落定烘焙会覆盖修正。
-        root.storeSharpThumbnail();
+        // 首帧只存廉价保险帧(卡片尺寸): 所有卡片首帧几乎同时到达, 各自
+        // 立刻做 2560px 高清烘焙会在进场动画期间砸出 GPU 突刺(卡顿根因)。
+        // 高清版由落定烘焙错峰补上。保险帧喂 freeze 与仓库两用, 零额外抓取。
+        root.storeCheapInsurance();
         settleBakeTimer.restart();
     }
 
@@ -271,6 +271,20 @@ Item { // Window
         }, grabTarget);
     }
 
+    // 廉价保险帧: 卡片渲染尺寸抓取, 同一份结果喂 freezeUrl 与静帧仓库。
+    // 仅当仓库尚无该窗口静帧时写入(不覆盖落定后的高清版)。
+    function storeCheapInsurance() {
+        if (!root.anyPreviewContent || root.hasStaticThumbnail)
+            return;
+        previewHost.grabToImage(result => {
+            if (result?.url)
+                root.freezeUrl = result.url;
+            if (result?.url && !root.hasStaticThumbnail
+                    && root.thumbnailStore && root.thumbnailCacheKey)
+                root.thumbnailStore(root.thumbnailCacheKey, result);
+        });
+    }
+
     Timer {
         id: settleBakeTimer
         // 布局落定后重烘焙并断流: expose/打开动画约 300ms, 400ms 起卡片
@@ -278,7 +292,9 @@ Item { // Window
         // 关键: disarm 必须在烘焙回调内执行 —— grabToImage 是异步渲染,
         // 若同步 disarm, 回调渲染时双槽已清空, 抓到空图覆盖好图,
         // 表现为全部卡片只剩壁纸(空图)透出来。
-        interval: 400
+        // +0~400ms 随机抖动: 各卡捕获几乎同拍到达, 无抖动时落定高清烘焙
+        // 会同拍集中触发(第二次 GPU 突刺), 错峰摊薄到 800ms 窗口内。
+        interval: 400 + Math.floor(Math.random() * 400)
         repeat: false
         onTriggered: {
             if (!root.captureActive)
