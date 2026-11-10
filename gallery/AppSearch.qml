@@ -50,19 +50,59 @@ Singleton {
         root.hiddenIds = next;
     }
 
+    // 图标文件只允许来自系统图标根目录(与 iconIndexScanCommand 同源),
+    // 阻断"窗口类名/桌面 Icon= 任意绝对路径 → 同步宿主解码"的攻击面。
+    readonly property var allowedIconRoots: {
+        const dirs = [];
+        const home = Quickshell.env("HOME") || "";
+        if (home.length > 0)
+            dirs.push(home + "/.icons", home + "/.local/share/icons");
+        const xdg = Quickshell.env("XDG_DATA_DIRS") || "/usr/local/share:/usr/share";
+        xdg.split(":").forEach(d => {
+            const t = String(d || "").replace(/\/+$/, "");
+            if (t.length > 0)
+                dirs.push(t + "/icons");
+        });
+        dirs.push("/usr/share/pixmaps");
+        return dirs;
+    }
+
+    // 文本规范化 ".."/"." 段(QML 无 realpath), 再对白名单根做前缀匹配。
+    function isAllowedIconPath(path) {
+        const raw = String(path || "");
+        const p = raw.startsWith("file://") ? raw.slice(7) : raw;
+        if (!p.startsWith("/"))
+            return false;
+        const canon = p.split("/").reduce((acc, seg) => {
+            if (!seg || seg === ".")
+                return acc;
+            if (seg === "..") {
+                acc.pop();
+                return acc;
+            }
+            acc.push(seg);
+            return acc;
+        }, []).join("/");
+        return root.allowedIconRoots.some(r => canon.length > r.length && canon.startsWith(r + "/"));
+    }
+
     function iconSource(iconName, fallback) {
         const name = String(iconName || fallback || "application-x-executable").trim();
         if (name.length === 0)
             return "";
-        if (name.startsWith("file://") || name.startsWith("image://"))
-            return name;
+        // image:// provider 名可被应用控制且不经文件白名单, 一律拒绝,
+        // 失败回退到 NerdIcon 字形。
+        if (name.startsWith("image://"))
+            return "";
+        if (name.startsWith("file://"))
+            return root.isAllowedIconPath(name) ? name : "";
         if (name.startsWith("/"))
-            return `file://${name}`;
+            return root.isAllowedIconPath(name) ? "file://" + name : "";
         const indexed = root.iconIndex[name];
         if (indexed)
-            return `file://${indexed}`;
+            return root.isAllowedIconPath(indexed) ? "file://" + indexed : "";
         const path = Quickshell.iconPath(name, true);
-        return path ? (path.startsWith("/") ? `file://${path}` : path) : "";
+        return path ? (path.startsWith("/") ? "file://" + path : path) : "";
     }
 
     function iconIndexScanCommand() {

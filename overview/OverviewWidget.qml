@@ -605,6 +605,8 @@ Item {
                 source: AppSearch.iconSource(AppSearch.guessIcon(
                     crossDragProxy.windowData?.class ?? crossDragProxy.windowData?.initialClass ?? ""))
                 fillMode: Image.PreserveAspectFit
+                sourceSize: Qt.size(64, 64)
+                asynchronous: true
                 visible: status === Image.Ready
             }
 
@@ -1219,6 +1221,8 @@ Item {
                         visible: !selectionInfoBar.showingWorkspaceInfo && selectionInfoBar.infoIconSource.length > 0
                         source: selectionInfoBar.infoIconSource
                         mipmap: true
+                        sourceSize: Qt.size(64, 64)
+                        asynchronous: true
                     }
 
                     NerdIcon {

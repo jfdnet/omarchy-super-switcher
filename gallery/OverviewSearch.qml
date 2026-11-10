@@ -470,6 +470,9 @@ Item {
                     source: row.iconSource
                     fillMode: Image.PreserveAspectFit
                     smooth: true
+                    // 解码上限: 限制内存峰值(防图标文件炸弹), 异步解码不卡渲染线程
+                    sourceSize: Qt.size(64, 64)
+                    asynchronous: true
                     visible: status === Image.Ready
                 }
 
